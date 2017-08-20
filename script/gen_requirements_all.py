@@ -132,6 +132,7 @@ TEST_REQUIREMENTS = (
     "pyMetno",
     "pymfy",
     "pymonoprice",
+    'pymysensors',
     "PyNaCl",
     "pynws",
     "pynx584",

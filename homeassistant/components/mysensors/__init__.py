@@ -151,13 +151,14 @@ def setup_mysensors_platform(
     async_add_entities=None,
 ):
     """Set up a MySensors platform."""
+    new_devices = []
     # Only act if called via MySensors by discovery event.
     # Otherwise gateway is not set up.
     if not discovery_info:
-        return None
+        return new_devices
     if device_args is None:
         device_args = ()
-    new_devices = []
+
     new_dev_ids = discovery_info[ATTR_DEVICES]
     for dev_id in new_dev_ids:
         devices = get_mysensors_devices(hass, domain)

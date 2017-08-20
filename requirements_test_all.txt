@@ -320,6 +320,9 @@ pymfy==0.5.2
 # homeassistant.components.monoprice
 pymonoprice==0.3
 
+# homeassistant.components.mysensors
+pymysensors==0.18.0
+
 # homeassistant.components.nws
 pynws==0.8.1
 
