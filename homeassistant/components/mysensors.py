@@ -52,6 +52,9 @@ CONF_VERSION = 'version'
 CONF_NODES = 'nodes'
 CONF_NODE_NAME = 'name'
 
+CONF_CHILDREN = 'children'
+CONF_CHILD_STATE_VALUE_TYPE = 'state_value_type'
+
 DEFAULT_BAUD_RATE = 115200
 DEFAULT_TCP_PORT = 5003
 DEFAULT_VERSION = '1.4'
@@ -144,9 +147,16 @@ def deprecated(key):
     return validator
 
 
+CHILDREN_SCHEMA = vol.Schema({
+    cv.positive_int: {
+        vol.Optional(CONF_CHILD_STATE_VALUE_TYPE): cv.string
+    }
+})
+
 NODE_SCHEMA = vol.Schema({
     cv.positive_int: {
-        vol.Required(CONF_NODE_NAME): cv.string
+        vol.Optional(CONF_NODE_NAME): cv.string,
+        vol.Optional(CONF_CHILDREN, default={}): CHILDREN_SCHEMA,
     }
 })
 
@@ -390,10 +400,25 @@ def setup(hass, config):
     return True
 
 
-def get_child_value_type(gateway, child):
+def get_child_value_type(gateway, node_id, child):
     """Return value_type for child."""
     pres = gateway.const.Presentation
     set_req = gateway.const.SetReq
+
+    state_value_type = next(
+        (child_conf[CONF_CHILD_STATE_VALUE_TYPE]
+         for conf_id, node in gateway.nodes_config.items()
+         if conf_id == node_id and CONF_CHILDREN in node
+         for child_id, child_conf in node[CONF_CHILDREN].items()
+         if child_id == child.id and
+         CONF_CHILD_STATE_VALUE_TYPE in child_conf),
+        None)
+    if state_value_type:
+        value_type = next(
+            (member.value for member in set_req
+             if member.name == state_value_type), None)
+        return value_type
+
     s_name = next(
         (member.name for member in pres if member.value == child.type), None)
     child_schemas = MYSENSORS_CONST_SCHEMA.get(s_name, [])
@@ -445,6 +470,28 @@ def validate_child(gateway, node_id, child):
             # only validate one schema per platform
             continue
 
+        state_value_type = next(
+            (child_conf[CONF_CHILD_STATE_VALUE_TYPE]
+             for conf_id, node in gateway.nodes_config.items()
+             if conf_id == node_id and CONF_CHILDREN in node
+             for child_id, child_conf in node[CONF_CHILDREN].items()
+             if child_id == child.id and
+             CONF_CHILD_STATE_VALUE_TYPE in child_conf),
+            None)
+        if state_value_type:
+            for _schema in child_schemas:
+                if platform != _schema[PLATFORM]:
+                    continue
+                for member in set_req:
+                    if member.name != _schema[TYPE]:
+                        continue
+                    if (member.value == value_type
+                            and member.name == state_value_type):
+                        validated[platform] = dev_id
+                        break
+                if platform in validated:
+                    break
+            continue
         vol_schemas = []
         vol_schemas.append(vol.Schema({
             vol.Exclusive(member.value, 'valid', msg=TOO_MANY_VALUE_TYPES):
@@ -641,7 +688,8 @@ class MySensorsDevice(object):
         child = node.children[self.child_id]
         set_req = self.gateway.const.SetReq
         if self.value_type is None:
-            self.value_type = get_child_value_type(self.gateway, child)
+            self.value_type = get_child_value_type(
+                self.gateway, self.node_id, child)
         for value_type, value in child.values.items():
             _LOGGER.debug(
                 "Entity update: %s: value_type %s, value = %s",
