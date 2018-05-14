@@ -29,14 +29,15 @@ def get_mysensors_devices(hass, domain):
 class MySensorsDevice:
     """Representation of a MySensors device."""
 
-    def __init__(self, gateway, node_id, child_id, name, value_type):
+    def __init__(self, mys_gateway, node_id, child_id, name, value_type):
         """Set up the MySensors device."""
-        self.gateway = gateway
+        self.mys_gateway = mys_gateway
+        self.gateway = mys_gateway.gateway
         self.node_id = node_id
         self.child_id = child_id
         self._name = name
         self.value_type = value_type
-        child = gateway.sensors[node_id].children[child_id]
+        child = self.gateway.sensors[node_id].children[child_id]
         self.child_type = child.type
         self._values = {}
 
@@ -55,7 +56,7 @@ class MySensorsDevice:
             ATTR_HEARTBEAT: node.heartbeat,
             ATTR_CHILD_ID: self.child_id,
             ATTR_DESCRIPTION: child.description,
-            ATTR_DEVICE: self.gateway.device,
+            ATTR_DEVICE: self.mys_gateway.device,
             ATTR_NODE_ID: self.node_id,
         }
 
@@ -68,6 +69,8 @@ class MySensorsDevice:
 
     async def async_update(self):
         """Update the controller with the latest value from a sensor."""
+        if self.mys_gateway.gateway_id is None:
+            self.mys_gateway.gateway_id = await self.gateway.get_gateway_id()
         node = self.gateway.sensors[self.node_id]
         child = node.children[self.child_id]
         set_req = self.gateway.const.SetReq
@@ -97,6 +100,15 @@ class MySensorsEntity(MySensorsDevice, Entity):
     def available(self):
         """Return true if entity is available."""
         return self.value_type in self._values
+
+    @property
+    def unique_id(self):
+        """Return a unique ID."""
+        if self.mys_gateway.gateway_id is None:
+            return None
+        return '{}_{}_{}_{}'.format(
+            self.mys_gateway.gateway_id, self.node_id, self.child_id,
+            self.value_type)
 
     @callback
     def async_update_callback(self):

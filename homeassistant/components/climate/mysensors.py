@@ -60,7 +60,7 @@ class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateDevice):
     @property
     def assumed_state(self):
         """Return True if unable to access real state of entity."""
-        return self.gateway.optimistic
+        return self.mys_gateway.optimistic
 
     @property
     def temperature_unit(self):
@@ -150,7 +150,7 @@ class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateDevice):
         for value_type, value in updates:
             self.gateway.set_child_value(
                 self.node_id, self.child_id, value_type, value)
-            if self.gateway.optimistic:
+            if self.mys_gateway.optimistic:
                 # Optimistically assume that device has changed state
                 self._values[value_type] = value
                 self.async_schedule_update_ha_state()
@@ -160,7 +160,7 @@ class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateDevice):
         set_req = self.gateway.const.SetReq
         self.gateway.set_child_value(
             self.node_id, self.child_id, set_req.V_HVAC_SPEED, fan_mode)
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # Optimistically assume that device has changed state
             self._values[set_req.V_HVAC_SPEED] = fan_mode
             self.async_schedule_update_ha_state()
@@ -170,7 +170,7 @@ class MySensorsHVAC(mysensors.device.MySensorsEntity, ClimateDevice):
         self.gateway.set_child_value(
             self.node_id, self.child_id, self.value_type,
             DICT_HA_TO_MYS[operation_mode])
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # Optimistically assume that device has changed state
             self._values[self.value_type] = operation_mode
             self.async_schedule_update_ha_state()

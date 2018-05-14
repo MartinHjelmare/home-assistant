@@ -71,7 +71,7 @@ class MySensorsSwitch(mysensors.device.MySensorsEntity, SwitchDevice):
     @property
     def assumed_state(self):
         """Return True if unable to access real state of entity."""
-        return self.gateway.optimistic
+        return self.mys_gateway.optimistic
 
     @property
     def current_power_w(self):
@@ -88,7 +88,7 @@ class MySensorsSwitch(mysensors.device.MySensorsEntity, SwitchDevice):
         """Turn the switch on."""
         self.gateway.set_child_value(
             self.node_id, self.child_id, self.value_type, 1)
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[self.value_type] = STATE_ON
             self.async_schedule_update_ha_state()
@@ -97,7 +97,7 @@ class MySensorsSwitch(mysensors.device.MySensorsEntity, SwitchDevice):
         """Turn the switch off."""
         self.gateway.set_child_value(
             self.node_id, self.child_id, self.value_type, 0)
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[self.value_type] = STATE_OFF
             self.async_schedule_update_ha_state()
@@ -126,7 +126,7 @@ class MySensorsIRSwitch(MySensorsSwitch):
             self.node_id, self.child_id, self.value_type, self._ir_code)
         self.gateway.set_child_value(
             self.node_id, self.child_id, set_req.V_LIGHT, 1)
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[self.value_type] = self._ir_code
             self._values[set_req.V_LIGHT] = STATE_ON
@@ -139,7 +139,7 @@ class MySensorsIRSwitch(MySensorsSwitch):
         set_req = self.gateway.const.SetReq
         self.gateway.set_child_value(
             self.node_id, self.child_id, set_req.V_LIGHT, 0)
-        if self.gateway.optimistic:
+        if self.mys_gateway.optimistic:
             # optimistically assume that switch has changed state
             self._values[set_req.V_LIGHT] = STATE_OFF
             self.async_schedule_update_ha_state()

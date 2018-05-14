@@ -116,12 +116,13 @@ async def async_setup(hass, config):
     return True
 
 
-def _get_mysensors_name(gateway, node_id, child_id):
+def _get_mysensors_name(mys_gateway, node_id, child_id):
     """Return a name for a node child."""
     node_name = '{} {}'.format(
-        gateway.sensors[node_id].sketch_name, node_id)
+        mys_gateway.gateway.sensors[node_id].sketch_name, node_id)
     node_name = next(
-        (node[CONF_NODE_NAME] for conf_id, node in gateway.nodes_config.items()
+        (node[CONF_NODE_NAME]
+         for conf_id, node in mys_gateway.nodes_config.items()
          if node.get(CONF_NODE_NAME) is not None and conf_id == node_id),
         node_name)
     return '{} {}'.format(node_name, child_id)
@@ -145,17 +146,17 @@ def setup_mysensors_platform(
         if dev_id in devices:
             continue
         gateway_id, node_id, child_id, value_type = dev_id
-        gateway = get_mysensors_gateway(hass, gateway_id)
-        if not gateway:
+        mys_gateway = get_mysensors_gateway(hass, gateway_id)
+        if not mys_gateway:
             continue
         device_class_copy = device_class
         if isinstance(device_class, dict):
-            child = gateway.sensors[node_id].children[child_id]
-            s_type = gateway.const.Presentation(child.type).name
+            child = mys_gateway.gateway.sensors[node_id].children[child_id]
+            s_type = mys_gateway.gateway.const.Presentation(child.type).name
             device_class_copy = device_class[s_type]
-        name = _get_mysensors_name(gateway, node_id, child_id)
+        name = _get_mysensors_name(mys_gateway, node_id, child_id)
 
-        args_copy = (*device_args, gateway, node_id, child_id, name,
+        args_copy = (*device_args, mys_gateway, node_id, child_id, name,
                      value_type)
         devices[dev_id] = device_class_copy(*args_copy)
         new_devices.append(devices[dev_id])
