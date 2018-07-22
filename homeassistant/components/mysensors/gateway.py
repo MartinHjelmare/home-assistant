@@ -65,16 +65,6 @@ def get_mysensors_gateway(hass, gateway_id):
     return gateways.get(gateway_id)
 
 
-async def async_setup_gateways(hass, mysensors_conf):
-    """Set up all gateways."""
-    for gateway_conf in mysensors_conf[CONF_GATEWAYS]:
-        hass.async_add_job(hass.config_entries.flow.async_init(
-            DOMAIN, source='import', data={
-                ENTRY_GATEWAY: gateway_conf,
-            }
-        ))
-
-
 async def create_gateway(hass, gateway_conf):
     """Return gateway after setup of the gateway."""
     from mysensors import mysensors

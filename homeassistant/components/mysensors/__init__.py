@@ -18,8 +18,7 @@ from .const import (
     ENTRY_GATEWAY, GATEWAY_SCHEMA, MQTT_COMPONENT, MYSENSORS_GATEWAYS)
 from .device import get_mysensors_devices
 from .gateway import (
-    async_setup_gateways, create_gateway, finish_gateway_setup,
-    get_mysensors_gateway)
+    create_gateway, finish_gateway_setup, get_mysensors_gateway)
 
 REQUIREMENTS = ['pymysensors==0.16.0']
 
@@ -72,6 +71,16 @@ async def async_setup(hass, config):
     await async_setup_gateways(hass, conf)
 
     return True
+
+
+async def async_setup_gateways(hass, mysensors_conf):
+    """Set up all gateways."""
+    for gateway_conf in mysensors_conf[CONF_GATEWAYS]:
+        hass.async_add_job(hass.config_entries.flow.async_init(
+            DOMAIN, source='import', data={
+                ENTRY_GATEWAY: gateway_conf,
+            }
+        ))
 
 
 async def async_setup_entry(hass, entry):
