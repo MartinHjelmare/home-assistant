@@ -141,18 +141,11 @@ async def create_gateway(hass, gateway_conf):
     return gateway
 
 
-async def finish_setup(hass, gateways):
+async def finish_gateway_setup(hass, gateway):
     """Load any persistent devices and platforms and start gateway."""
-    discover_tasks = []
-    start_tasks = []
-    for gateway in gateways.values():
-        discover_tasks.append(_discover_persistent_devices(hass, gateway))
-        start_tasks.append(_gw_start(hass, gateway))
-    if discover_tasks:
-        # Make sure all devices and platforms are loaded before gateway start.
-        await asyncio.wait(discover_tasks, loop=hass.loop)
-    if start_tasks:
-        await asyncio.wait(start_tasks, loop=hass.loop)
+    # Make sure all devices and platforms are loaded before gateway start.
+    await _discover_persistent_devices(hass, gateway)
+    await _gw_start(hass, gateway)
 
 
 async def _discover_persistent_devices(hass, gateway):

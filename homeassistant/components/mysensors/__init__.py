@@ -18,7 +18,8 @@ from .const import (
     ENTRY_GATEWAY, GATEWAY_SCHEMA, MQTT_COMPONENT, MYSENSORS_GATEWAYS)
 from .device import get_mysensors_devices
 from .gateway import (
-    async_setup_gateways, create_gateway, finish_setup, get_mysensors_gateway)
+    async_setup_gateways, create_gateway, finish_gateway_setup,
+    get_mysensors_gateway)
 
 REQUIREMENTS = ['pymysensors==0.16.0']
 
@@ -90,7 +91,7 @@ async def async_setup_entry(hass, entry):
     if ready_gateway is not None:
         gateways[id(ready_gateway)] = ready_gateway
 
-        hass.async_add_job(finish_setup(hass, gateways))
+        hass.async_add_job(finish_gateway_setup(hass, ready_gateway))
 
         return True
     _LOGGER.error(
