@@ -17,11 +17,10 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
-    ATTR_DEVICES, CONF_BAUD_RATE, CONF_DEVICE, CONF_GATEWAY_TYPE,
-    CONF_GATEWAYS, CONF_MQTT, CONF_NODES, CONF_PERSISTENCE_FILE, CONF_RETAIN,
-    CONF_SERIAL, CONF_TCP, CONF_TCP_PORT, CONF_TOPIC_IN_PREFIX,
-    CONF_TOPIC_OUT_PREFIX, CONF_VERSION, DOMAIN, ENTRY_GATEWAY,
-    MYSENSORS_CONST_SCHEMA, MYSENSORS_GATEWAYS, PLATFORM, SCHEMA,
+    ATTR_DEVICES, CONF_BAUD_RATE, CONF_DEVICE, CONF_GATEWAY_TYPE, CONF_MQTT,
+    CONF_NODES, CONF_PERSISTENCE_FILE, CONF_RETAIN, CONF_SERIAL, CONF_TCP,
+    CONF_TCP_PORT, CONF_TOPIC_IN_PREFIX, CONF_TOPIC_OUT_PREFIX, CONF_VERSION,
+    DOMAIN, MYSENSORS_CONST_SCHEMA, MYSENSORS_GATEWAYS, PLATFORM, SCHEMA,
     SIGNAL_CALLBACK, TYPE)
 from .device import get_mysensors_devices
 from .errors import SerialPortInvalid, SocketInvalid
@@ -92,7 +91,7 @@ async def create_gateway(hass, gateway_conf):
                 """Call callback."""
                 sub_cb(*args)
 
-            hass.async_add_job(
+            hass.async_create_task(
                 mqtt.async_subscribe(topic, internal_callback, qos))
 
         gateway = mysensors.AsyncMQTTGateway(
@@ -157,7 +156,7 @@ async def _discover_persistent_devices(hass, gateway):
 @callback
 def _discover_mysensors_platform(hass, platform, new_devices):
     """Discover a MySensors platform."""
-    task = hass.async_add_job(discovery.async_load_platform(
+    task = hass.async_create_task(discovery.async_load_platform(
         hass, platform, DOMAIN,
         {ATTR_DEVICES: new_devices, CONF_NAME: DOMAIN}))
     return task
@@ -168,7 +167,7 @@ async def _gw_start(hass, gateway):
     @callback
     def gw_stop(event):
         """Trigger to stop the gateway."""
-        hass.async_add_job(gateway.stop())
+        hass.async_create_task(gateway.stop())
 
     await gateway.start()
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, gw_stop)

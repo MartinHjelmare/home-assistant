@@ -76,7 +76,7 @@ async def async_setup(hass, config):
 async def async_setup_gateways(hass, mysensors_conf):
     """Set up all gateways."""
     for gateway_conf in mysensors_conf[CONF_GATEWAYS]:
-        hass.async_add_job(hass.config_entries.flow.async_init(
+        hass.async_create_task(hass.config_entries.flow.async_init(
             DOMAIN, source='import', data={
                 ENTRY_GATEWAY: gateway_conf,
             }
@@ -95,12 +95,11 @@ async def async_setup_entry(hass, entry):
             _LOGGER.error("Failed to set up %s component", MQTT_COMPONENT)
             return False
 
-    ready_gateway = await hass.async_add_job(
-        create_gateway, hass, gateway_conf)
+    ready_gateway = await create_gateway(hass, gateway_conf)
     if ready_gateway is not None:
         gateways[id(ready_gateway)] = ready_gateway
 
-        hass.async_add_job(finish_gateway_setup(hass, ready_gateway))
+        hass.async_create_task(finish_gateway_setup(hass, ready_gateway))
 
         return True
     _LOGGER.error(
