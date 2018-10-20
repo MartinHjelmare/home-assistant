@@ -391,7 +391,7 @@ def setup(hass, config):
         fw_type = service.data.get(ATTR_FW_TYPE)
         fw_version = service.data.get(ATTR_FW_VERSION)
         fw_path = service.data.get(ATTR_FW_PATH)
-        domains = [split_entity_id(entity_id) for entity_id in entity_ids]
+        domains = [split_entity_id(entity_id)[0] for entity_id in entity_ids]
         all_devices = [
             device for domain in domains
             for device in get_mysensors_devices(hass, domain).values()]
