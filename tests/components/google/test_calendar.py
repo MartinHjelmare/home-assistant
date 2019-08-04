@@ -116,7 +116,7 @@ def set_time_zone():
 def mock_google_service():
     """Mock google service."""
     patch_google_service = patch(
-        "homeassistant.components.google.calendar.GoogleCalendarService"
+        "homeassistant.components.google.GoogleCalendarService"
     )
     with patch_google_service as mock_service:
         yield mock_service

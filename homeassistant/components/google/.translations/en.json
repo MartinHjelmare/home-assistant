@@ -1,0 +1,14 @@
+{
+    "config": {
+        "abort": {
+            "already_setup": "You can only configure one Google account.",
+            "authorize_url_timeout": "Timeout generating authorize url.",
+            "code_exchange_fail": "Failed to generate credentials.",
+            "missing_configuration": "The Google component is not configured. Please follow the documentation."
+        },
+        "create_entry": {
+            "default": "Successfully authenticated with Google."
+        },
+        "title": "Google"
+    }
+}

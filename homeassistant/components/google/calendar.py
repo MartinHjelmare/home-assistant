@@ -3,12 +3,15 @@ import copy
 from datetime import timedelta
 import logging
 
+from httplib2 import ServerNotFoundError
+
 from homeassistant.components.calendar import (
     ENTITY_ID_FORMAT,
     CalendarEventDevice,
     calculate_offset,
     is_offset_reached,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import generate_entity_id
 from homeassistant.util import Throttle, dt
 
@@ -22,9 +25,11 @@ from . import (
     CONF_OFFSET,
     CONF_SEARCH,
     CONF_TRACK,
+    DISCOVER_CALENDAR,
+    DOMAIN as GOOGLE_DOMAIN,
+    DATA_CALENDAR_SERVICE,
+    DATA_DISPATCHERS,
     DEFAULT_CONF_OFFSET,
-    TOKEN_FILE,
-    GoogleCalendarService,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,28 +43,42 @@ DEFAULT_GOOGLE_SEARCH_PARAMS = {
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
 
 
-def setup_platform(hass, config, add_entities, disc_info=None):
-    """Set up the calendar platform for event devices."""
-    if disc_info is None:
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    """Old way of setting up Google calendars."""
+    pass
+
+
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up the Google calendar platform."""
+
+    async def async_discover(discovery_info):
+        await _async_setup_entities(
+            hass, config_entry, async_add_entities, discovery_info
+        )
+
+    unsub = async_dispatcher_connect(hass, DISCOVER_CALENDAR, async_discover)
+    hass.data[GOOGLE_DOMAIN][DATA_DISPATCHERS].append(unsub)
+
+
+async def _async_setup_entities(hass, config_entry, async_add_entities, discovery_info):
+    """Set up the Google calendars."""
+    if not any(data[CONF_TRACK] for data in discovery_info[CONF_ENTITIES]):
         return
 
-    if not any(data[CONF_TRACK] for data in disc_info[CONF_ENTITIES]):
-        return
-
-    calendar_service = GoogleCalendarService(hass.config.path(TOKEN_FILE))
+    calendar_service = hass.data[GOOGLE_DOMAIN][DATA_CALENDAR_SERVICE]
     entities = []
-    for data in disc_info[CONF_ENTITIES]:
+    for data in discovery_info[CONF_ENTITIES]:
         if not data[CONF_TRACK]:
             continue
         entity_id = generate_entity_id(
             ENTITY_ID_FORMAT, data[CONF_DEVICE_ID], hass=hass
         )
         entity = GoogleCalendarEventDevice(
-            calendar_service, disc_info[CONF_CAL_ID], data, entity_id
+            calendar_service, discovery_info[CONF_CAL_ID], data, entity_id
         )
         entities.append(entity)
 
-    add_entities(entities, True)
+    async_add_entities(entities, True)
 
 
 class GoogleCalendarEventDevice(CalendarEventDevice):
@@ -126,9 +145,6 @@ class GoogleCalendarData:
         self.event = None
 
     def _prepare_query(self):
-        # pylint: disable=import-error
-        from httplib2 import ServerNotFoundError
-
         try:
             service = self.calendar_service.get()
         except ServerNotFoundError:

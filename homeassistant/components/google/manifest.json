@@ -1,6 +1,7 @@
 {
   "domain": "google",
   "name": "Google",
+  "config_flow": true,
   "documentation": "https://www.home-assistant.io/components/google",
   "requirements": [
     "google-api-python-client==1.6.4",

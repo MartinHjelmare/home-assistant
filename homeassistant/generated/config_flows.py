@@ -20,6 +20,7 @@ FLOWS = [
     "esphome",
     "geofency",
     "geonetnz_quakes",
+    "google",
     "gpslogger",
     "hangouts",
     "heos",
@@ -74,5 +75,5 @@ FLOWS = [
     "wwlln",
     "zha",
     "zone",
-    "zwave"
+    "zwave",
 ]
