@@ -196,7 +196,9 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
         )
 
         dispatcher_send(
-            DISCOVER_CALENDAR, hass.data[DOMAIN][DATA_INDEX][calendar[CONF_CAL_ID]]
+            hass,
+            DISCOVER_CALENDAR,
+            hass.data[DOMAIN][DATA_INDEX][calendar[CONF_CAL_ID]],
         )
 
     hass.services.register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
