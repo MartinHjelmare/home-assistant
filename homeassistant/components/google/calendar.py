@@ -12,7 +12,7 @@ from homeassistant.components.calendar import (
     is_offset_reached,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers.entity import generate_entity_id
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import Throttle, dt
 
 from . import (
@@ -74,7 +74,7 @@ async def _async_setup_entities(hass, config_entry, async_add_entities, discover
     for data in discovery_info[CONF_ENTITIES]:
         if not data[CONF_TRACK]:
             continue
-        entity_id = generate_entity_id(
+        entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, data[CONF_DEVICE_ID], hass=hass
         )
         entity = GoogleCalendarEventDevice(
