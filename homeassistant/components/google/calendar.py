@@ -30,6 +30,7 @@ from . import (
     DATA_CALENDAR_SERVICE,
     DATA_DISPATCHERS,
     DEFAULT_CONF_OFFSET,
+    SERVICE_SCAN_CALENDARS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,6 +59,9 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     unsub = async_dispatcher_connect(hass, DISCOVER_CALENDAR, async_discover)
     hass.data[GOOGLE_DOMAIN][DATA_DISPATCHERS].append(unsub)
+
+    # Look for any new calendars
+    await hass.services.async_call(GOOGLE_DOMAIN, SERVICE_SCAN_CALENDARS)
 
 
 async def _async_setup_entities(hass, config_entry, async_add_entities, discovery_info):

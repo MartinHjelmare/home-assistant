@@ -152,21 +152,20 @@ async def async_setup_entry(hass, entry):
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "calendar")
     )
-    # Look for any new calendars
-    hass.async_create_task(hass.services.async_call(DOMAIN, SERVICE_SCAN_CALENDARS))
 
     return True
 
 
 async def async_unload_entry(hass, entry):
     """Unload Google config entry."""
-    dispatchers = hass.data[DOMAIN].get(DATA_DISPATCHERS, [])
+    dispatchers = hass.data[DOMAIN].pop(DATA_DISPATCHERS, [])
     for unsub_dispatcher in dispatchers:
         unsub_dispatcher()
 
     await hass.config_entries.async_forward_entry_unload(entry, "calendar")
 
-    del hass.data[DOMAIN]
+    del hass.data[DOMAIN][DATA_INDEX]
+
     return True
 
 
@@ -185,21 +184,14 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
     def _found_calendar(call):
         """Check if we know about a calendar and generate PLATFORM_DISCOVER."""
         calendar = get_calendar_info(hass, call.data)
-        if hass.data[DOMAIN][DATA_INDEX].get(calendar[CONF_CAL_ID], None) is not None:
+        if hass.data[DOMAIN][DATA_INDEX].get(calendar[CONF_CAL_ID]) is None:
             return
 
-        hass.data[DOMAIN][DATA_INDEX].update({calendar[CONF_CAL_ID]: calendar})
+        hass.data[DOMAIN][DATA_INDEX][calendar[CONF_CAL_ID]] = calendar
 
-        update_config(
-            hass.config.path(YAML_DEVICES),
-            hass.data[DOMAIN][DATA_INDEX][calendar[CONF_CAL_ID]],
-        )
+        update_config(hass.config.path(YAML_DEVICES), calendar)
 
-        dispatcher_send(
-            hass,
-            DISCOVER_CALENDAR,
-            hass.data[DOMAIN][DATA_INDEX][calendar[CONF_CAL_ID]],
-        )
+        dispatcher_send(hass, DISCOVER_CALENDAR, calendar)
 
     hass.services.register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
 
