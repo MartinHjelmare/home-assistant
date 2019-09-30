@@ -1,7 +1,6 @@
 """Support for Google Calendar."""
 from datetime import datetime, timedelta
 import logging
-import os
 
 from googleapiclient import discovery as google_discovery
 from google.oauth2.credentials import Credentials
@@ -15,7 +14,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import generate_entity_id
 
 from . import config_flow
-from .const import DOMAIN, TOKEN_FILE
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -145,24 +144,10 @@ async def async_setup(hass, config):
 
 async def async_setup_entry(hass, entry):
     """Set up Google from a config entry."""
-    token_file = hass.config.path(TOKEN_FILE)
-    if not await hass.async_add_executor_job(os.path.isfile, token_file):
-        _LOGGER.error(
-            "Missing token file, please delete and reconfigure the Google integration"
-        )
-        return False
-
-    if not await hass.async_add_executor_job(check_correct_scopes, token_file):
-        _LOGGER.error(
-            "Incorrect readonly scope on token file, "
-            "please delete and reconfigure the Google integration"
-        )
-        return False
-
     hass.data[DOMAIN][DATA_INDEX] = {}
     hass.data[DOMAIN][DATA_DISPATCHERS] = []
     conf = hass.data[DOMAIN][DATA_CONFIG]
-    await hass.async_add_executor_job(do_setup, hass, conf)
+    await hass.async_add_executor_job(do_setup, hass, entry, conf)
 
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "calendar")

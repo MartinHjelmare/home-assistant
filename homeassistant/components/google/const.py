@@ -13,4 +13,3 @@ GOOGLE_CLIENT_SECRETS = {
     }
 }
 SCOPE = "https://www.googleapis.com/auth/calendar"
-TOKEN_FILE = f".{DOMAIN}.token"
