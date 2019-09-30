@@ -7,15 +7,25 @@ import logging
 from aiohttp import web_response
 import async_timeout
 from google_auth_oauthlib.flow import Flow
+import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import callback
 
-from .const import CLIENT_ID, CLIENT_SECRET, DOMAIN, GOOGLE_CLIENT_SECRETS, SCOPE
+from .const import (
+    CLIENT_ID,
+    CLIENT_SECRET,
+    DOMAIN,
+    GOOGLE_CLIENT_SECRETS,
+    INSTALLED,
+    REDIRECT_URIS,
+    SCOPE,
+)
 
 AUTH_CALLBACK_PATH = "/auth/google/callback"
 AUTH_CALLBACK_NAME = "auth:google:callback"
+IS_FQDN = vol.Schema(vol.FqdnUrl())
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -76,15 +86,19 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Get Google authorization url."""
         client_id = self.hass.data[DOMAIN][CLIENT_ID]
         client_secret = self.hass.data[DOMAIN][CLIENT_SECRET]
-        # FIXME: Google does not allow ip address in the redirect
-        # redirect_uri = f"{self.hass.config.api.base_url}{AUTH_CALLBACK_PATH}"
-        # http://localhost:8123/auth/google/callback
-        localhost = "http://localhost:8123"
-        redirect_uri = f"{localhost}{AUTH_CALLBACK_PATH}"
+        # Google does not allow an ip address in the redirect uri.
+        # A hostname or localhost must be used.
+        try:
+            host = IS_FQDN(self.hass.config.api.base_url)
+            # FIXME: remove print
+            print("WAS FQDN:", host)
+        except vol.Invalid:
+            host = f"http://localhost:{self.hass.config.api.port}"
+        redirect_uri = f"{host}{AUTH_CALLBACK_PATH}"
         client_config = deepcopy(GOOGLE_CLIENT_SECRETS)
-        client_config["web"]["client_id"] = client_id
-        client_config["web"]["client_secret"] = client_secret
-        client_config["web"]["redirect_uris"] = [redirect_uri]
+        client_config[INSTALLED][CLIENT_ID] = client_id
+        client_config[INSTALLED][CLIENT_SECRET] = client_secret
+        client_config[INSTALLED][REDIRECT_URIS] = [redirect_uri]
         self._google_flow = google_flow = Flow.from_client_config(
             client_config, [SCOPE]
         )

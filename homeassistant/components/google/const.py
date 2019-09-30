@@ -3,12 +3,14 @@
 DOMAIN = "google"
 CLIENT_ID = "client_id"
 CLIENT_SECRET = "client_secret"
+INSTALLED = "installed"
+REDIRECT_URIS = "redirect_uris"
 GOOGLE_CLIENT_SECRETS = {
-    "web": {
+    INSTALLED: {
         "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "client_id": "REPLACE_ME",
-        "client_secret": "REPLACE_ME",
-        "redirect_uris": ["REPLACE_ME"],
+        CLIENT_ID: "REPLACE_ME",
+        CLIENT_SECRET: "REPLACE_ME",
+        REDIRECT_URIS: ["REPLACE_ME"],
         "token_uri": "https://oauth2.googleapis.com/token",
     }
 }
