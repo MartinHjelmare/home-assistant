@@ -169,6 +169,9 @@ async def async_unload_entry(hass, entry):
     return True
 
 
+# FIXME: Replace checking scope
+
+
 def check_correct_scopes(token_file):
     """Check for the correct scopes in file."""
     with open(token_file, "r") as file_handle:
@@ -281,7 +284,8 @@ class GoogleCalendarService:
             credentials = Credentials.from_authorized_user_info(self.entry.data)
         except ValueError:
             _LOGGER.error("Failed to generate credentials")
-            return None
+            raise
+        # FIXME: Extract magic strings
         service = google_discovery.build(
             "calendar", "v3", credentials=credentials, cache_discovery=False
         )

@@ -3,6 +3,7 @@ import copy
 from datetime import timedelta
 import logging
 
+# FIXME: Check if this exception is available
 from httplib2 import ServerNotFoundError
 
 from homeassistant.components.calendar import (
@@ -151,10 +152,8 @@ class GoogleCalendarData:
     def _prepare_query(self):
         try:
             service = self.calendar_service.get()
-        except ServerNotFoundError:
+        except (ServerNotFoundError, ValueError):
             _LOGGER.error("Unable to connect to Google")
-            return None, None
-        if service is None:
             return None, None
         params = dict(DEFAULT_GOOGLE_SEARCH_PARAMS)
         params["calendarId"] = self.calendar_id
