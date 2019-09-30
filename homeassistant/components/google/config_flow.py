@@ -1,18 +1,18 @@
 """Config flow for Google."""
 import asyncio
+from copy import deepcopy
 from functools import partial
 import logging
 
 from aiohttp import web_response
 import async_timeout
-from oauth2client.client import FlowExchangeError, OAuth2WebServerFlow
-from oauth2client.file import Storage
+from google_auth_oauthlib.flow import Flow
 
 from homeassistant import config_entries
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import callback
 
-from .const import CLIENT_ID, CLIENT_SECRET, DOMAIN, SCOPE, TOKEN_FILE
+from .const import CLIENT_ID, CLIENT_SECRET, DOMAIN, GOOGLE_CLIENT_SECRETS, SCOPE
 
 AUTH_CALLBACK_PATH = "/auth/google/callback"
 AUTH_CALLBACK_NAME = "auth:google:callback"
@@ -66,7 +66,7 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         try:
             with async_timeout.timeout(10):
-                url = await self._get_authorization_url()
+                url, state = await self._get_authorization_url()
         except asyncio.TimeoutError:
             return self.async_abort(reason="authorize_url_timeout")
 
@@ -77,36 +77,51 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         client_id = self.hass.data[DOMAIN][CLIENT_ID]
         client_secret = self.hass.data[DOMAIN][CLIENT_SECRET]
         redirect_uri = f"{self.hass.config.api.base_url}{AUTH_CALLBACK_PATH}"
-        self._google_flow = google_flow = OAuth2WebServerFlow(
-            client_id=client_id,
-            client_secret=client_secret,
-            scope=SCOPE,
-            redirect_uri=redirect_uri,
+        client_config = deepcopy(GOOGLE_CLIENT_SECRETS)
+        client_config["web"]["client_id"] = client_id
+        client_config["web"]["client_secret"] = client_secret
+        client_config["web"]["redirect_uris"] = [redirect_uri]
+        self._google_flow = google_flow = Flow.from_client_config(
+            client_config, [SCOPE]
         )
+        google_flow.redirect_uri = redirect_uri
 
         self.hass.http.register_view(GoogleAuthCallbackView())
+
         # Thanks to the state, we can forward the flow id to Google that will
         # add it in the callback.
-        get_url = partial(google_flow.step1_get_authorize_url, state=self.flow_id)
+        get_url = partial(
+            google_flow.authorization_url,
+            access_type="offline",
+            include_granted_scopes="true",
+            state=self.flow_id,
+        )
         return await self.hass.async_add_executor_job(get_url)
 
     async def async_step_code(self, code):
         """Received code for authentication."""
+        fetch_token = partial(self._google_flow.fetch_token, code=code)
         try:
-            self._credentials = await self.hass.async_add_executor_job(
-                self._google_flow.step2_exchange, code
-            )
-        except FlowExchangeError:
+            await self.hass.async_add_executor_job(fetch_token)
+        except OSError:
             return self.async_abort(reason="code_exchange_fail")
         _LOGGER.info("Successfully authenticated with Google")
         return self.async_external_step_done(next_step_id="creation")
 
     async def async_step_creation(self, user_input=None):
         """Create Google api and entries."""
-        storage = Storage(self.hass.config.path(TOKEN_FILE))
-        await self.hass.async_add_executor_job(storage.put, self._credentials)
+        creds = self._google_flow.credentials
+        data = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": creds.scopes,
+            "expiry": creds.expiry.isoformat(),
+        }
 
-        return self.async_create_entry(title="Google")
+        return self.async_create_entry(title="Google", data=data)
 
 
 class GoogleAuthCallbackView(HomeAssistantView):

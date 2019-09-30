@@ -155,7 +155,7 @@ georss_qld_bushfire_alert_client==0.3
 getmac==0.8.1
 
 # homeassistant.components.google
-google-api-python-client==1.6.4
+google-api-python-client==1.7.11
 
 # homeassistant.components.ffmpeg
 ha-ffmpeg==2.0
@@ -190,7 +190,6 @@ homekit[IP]==0.15.0
 # homeassistant.components.homematicip_cloud
 homematicip==0.10.12
 
-# homeassistant.components.google
 # homeassistant.components.remember_the_milk
 httplib2==0.10.3
 
@@ -236,9 +235,6 @@ nokia==1.2.0
 # homeassistant.components.tensorflow
 # homeassistant.components.trend
 numpy==1.17.1
-
-# homeassistant.components.google
-oauth2client==4.0.0
 
 # homeassistant.components.mqtt
 # homeassistant.components.shiftr

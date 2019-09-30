@@ -75,5 +75,5 @@ FLOWS = [
     "wwlln",
     "zha",
     "zone",
-    "zwave",
+    "zwave"
 ]

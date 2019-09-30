@@ -4,8 +4,7 @@ import logging
 import os
 
 from googleapiclient import discovery as google_discovery
-import httplib2
-from oauth2client.file import Storage
+from google.oauth2.credentials import Credentials
 import voluptuous as vol
 from voluptuous.error import Error as VoluptuousError
 import yaml
@@ -174,13 +173,13 @@ async def async_setup_entry(hass, entry):
     return True
 
 
-async def async_unload_entry(hass, config_entry):
+async def async_unload_entry(hass, entry):
     """Unload Google config entry."""
     dispatchers = hass.data[DOMAIN].get(DATA_DISPATCHERS, [])
     for unsub_dispatcher in dispatchers:
         unsub_dispatcher()
 
-    await hass.config_entries.async_forward_entry_unload(config_entry, "calendar")
+    await hass.config_entries.async_forward_entry_unload(entry, "calendar")
 
     del hass.data[DOMAIN]
     return True
@@ -279,12 +278,12 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
     )
 
 
-def do_setup(hass, config):
+def do_setup(hass, entry, config):
     """Run the setup after we have everything configured."""
     # Load calendars the user has configured
     hass.data[DOMAIN][DATA_INDEX] = load_config(hass.config.path(YAML_DEVICES))
 
-    calendar_service = GoogleCalendarService(hass.config.path(TOKEN_FILE))
+    calendar_service = GoogleCalendarService(entry)
     hass.data[DOMAIN][DATA_CALENDAR_SERVICE] = calendar_service
     track_new_found_calendars = config[CONF_TRACK_NEW]
     setup_services(hass, track_new_found_calendars, calendar_service)
@@ -293,16 +292,19 @@ def do_setup(hass, config):
 class GoogleCalendarService:
     """Calendar service interface to Google."""
 
-    def __init__(self, token_file):
+    def __init__(self, entry):
         """Init the Google Calendar service."""
-        self.token_file = token_file
+        self.entry = entry
 
     def get(self):
-        """Get the calendar service from the storage file token."""
-        credentials = Storage(self.token_file).get()
-        http = credentials.authorize(httplib2.Http())
+        """Get the calendar service from the stored token."""
+        try:
+            credentials = Credentials.from_authorized_user_info(self.entry.data)
+        except ValueError:
+            _LOGGER.error("Failed to generate credentials")
+            return None
         service = google_discovery.build(
-            "calendar", "v3", http=http, cache_discovery=False
+            "calendar", "v3", credentials=credentials, cache_discovery=False
         )
         return service
 

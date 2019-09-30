@@ -150,6 +150,8 @@ class GoogleCalendarData:
         except ServerNotFoundError:
             _LOGGER.error("Unable to connect to Google")
             return None, None
+        if service is None:
+            return None, None
         params = dict(DEFAULT_GOOGLE_SEARCH_PARAMS)
         params["calendarId"] = self.calendar_id
         if self.max_results:

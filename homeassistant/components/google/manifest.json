@@ -4,9 +4,8 @@
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/components/google",
   "requirements": [
-    "google-api-python-client==1.6.4",
-    "httplib2==0.10.3",
-    "oauth2client==4.0.0"
+    "google-api-python-client==1.7.11",
+    "google-auth-oauthlib==0.4.0"
   ],
   "dependencies": [],
   "codeowners": []
