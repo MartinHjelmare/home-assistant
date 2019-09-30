@@ -76,7 +76,11 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         """Get Google authorization url."""
         client_id = self.hass.data[DOMAIN][CLIENT_ID]
         client_secret = self.hass.data[DOMAIN][CLIENT_SECRET]
-        redirect_uri = f"{self.hass.config.api.base_url}{AUTH_CALLBACK_PATH}"
+        # FIXME: Google does not allow ip address in the redirect
+        # redirect_uri = f"{self.hass.config.api.base_url}{AUTH_CALLBACK_PATH}"
+        # http://localhost:8123/auth/google/callback
+        localhost = "http://localhost:8123"
+        redirect_uri = f"{localhost}{AUTH_CALLBACK_PATH}"
         client_config = deepcopy(GOOGLE_CLIENT_SECRETS)
         client_config["web"]["client_id"] = client_id
         client_config["web"]["client_secret"] = client_secret
