@@ -200,7 +200,10 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
 
     def _scan_for_calendars(call):
         """Scan for new calendars."""
-        service = calendar_service.get()
+        try:
+            service = calendar_service.get()
+        except ValueError:
+            raise ValueError("Service scan_for_calendars failed")
         cal_list = service.calendarList()
         calendars = cal_list.list().execute()["items"]
         for calendar in calendars:
@@ -211,7 +214,10 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
 
     def _add_event(call):
         """Add a new event to calendar."""
-        service = calendar_service.get()
+        try:
+            service = calendar_service.get()
+        except ValueError:
+            raise ValueError("Service add_event failed")
         start = {}
         end = {}
 
@@ -285,7 +291,7 @@ class GoogleCalendarService:
         except ValueError:
             _LOGGER.error("Failed to generate credentials")
             raise
-        # FIXME: Extract magic strings
+
         service = google_discovery.build(
             "calendar", "v3", credentials=credentials, cache_discovery=False
         )

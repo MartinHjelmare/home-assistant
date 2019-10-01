@@ -3,7 +3,6 @@ import copy
 from datetime import timedelta
 import logging
 
-# FIXME: Check if this exception is available
 from httplib2 import ServerNotFoundError
 
 from homeassistant.components.calendar import (
