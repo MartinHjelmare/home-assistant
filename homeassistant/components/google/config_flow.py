@@ -90,10 +90,8 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         # A hostname or localhost must be used.
         try:
             host = IS_FQDN(self.hass.config.api.base_url)
-            # FIXME: remove print
-            print("WAS FQDN:", host)
         except vol.Invalid:
-            host = f"http://localhost:{self.hass.config.api.port}"
+            host = f"http://localhost:{self.hass.http.server_port}"
         redirect_uri = f"{host}{AUTH_CALLBACK_PATH}"
         client_config = deepcopy(GOOGLE_CLIENT_SECRETS)
         client_config[INSTALLED][CLIENT_ID] = client_id
@@ -121,7 +119,8 @@ class GoogleFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         fetch_token = partial(self._google_flow.fetch_token, code=code)
         try:
             await self.hass.async_add_executor_job(fetch_token)
-        except OSError:
+        except OSError as exc:
+            _LOGGER.error("Failed fetching token: %s", exc)
             return self.async_abort(reason="code_exchange_fail")
         _LOGGER.info("Successfully authenticated with Google")
         return self.async_external_step_done(next_step_id="creation")
