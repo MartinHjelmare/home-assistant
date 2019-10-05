@@ -61,7 +61,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     hass.data[GOOGLE_DOMAIN][DATA_DISPATCHERS].append(unsub)
 
     # Look for any new calendars
-    await hass.services.async_call(GOOGLE_DOMAIN, SERVICE_SCAN_CALENDARS)
+    await hass.services.async_call(GOOGLE_DOMAIN, SERVICE_SCAN_CALENDARS, blocking=True)
 
 
 async def _async_setup_entities(hass, config_entry, async_add_entities, discovery_info):

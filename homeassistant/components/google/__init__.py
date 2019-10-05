@@ -1,8 +1,10 @@
 """Support for Google Calendar."""
 from datetime import datetime, timedelta
+from functools import wraps
 import logging
 
 from googleapiclient import discovery as google_discovery
+from google.auth.exceptions import GoogleAuthError, RefreshError
 from google.oauth2.credentials import Credentials
 import voluptuous as vol
 from voluptuous.error import Error as VoluptuousError
@@ -181,6 +183,29 @@ def check_correct_scopes(token_file):
     return True
 
 
+def catch_auth_errors(service):
+    """Return decorator that catches Google auth failures."""
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except RefreshError as exc:
+                _LOGGER.error(
+                    "Failed calling %s: Token failed to refresh. "
+                    "Reloading integration necessary: %s",
+                    service,
+                    exc,
+                )
+            except GoogleAuthError as exc:
+                _LOGGER.error("Failed calling %s: %s", service, exc)
+
+        return wrapper
+
+    return decorator
+
+
 def setup_services(hass, track_new_found_calendars, calendar_service):
     """Set up the service listeners."""
 
@@ -198,26 +223,23 @@ def setup_services(hass, track_new_found_calendars, calendar_service):
 
     hass.services.register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
 
+    @catch_auth_errors(SERVICE_SCAN_CALENDARS)
     def _scan_for_calendars(call):
         """Scan for new calendars."""
-        try:
-            service = calendar_service.get()
-        except ValueError:
-            raise ValueError("Service scan_for_calendars failed")
+        service = calendar_service.get()
         cal_list = service.calendarList()
         calendars = cal_list.list().execute()["items"]
+
         for calendar in calendars:
             calendar["track"] = track_new_found_calendars
             hass.services.call(DOMAIN, SERVICE_FOUND_CALENDARS, calendar)
 
     hass.services.register(DOMAIN, SERVICE_SCAN_CALENDARS, _scan_for_calendars)
 
+    @catch_auth_errors(SERVICE_ADD_EVENT)
     def _add_event(call):
         """Add a new event to calendar."""
-        try:
-            service = calendar_service.get()
-        except ValueError:
-            raise ValueError("Service add_event failed")
+        service = calendar_service.get()
         start = {}
         end = {}
 
@@ -289,7 +311,7 @@ class GoogleCalendarService:
         try:
             credentials = Credentials.from_authorized_user_info(self.entry.data)
         except ValueError:
-            _LOGGER.error("Failed to generate credentials")
+            _LOGGER.error("Failed to generate credentials from config entry data")
             raise
 
         service = google_discovery.build(
