@@ -191,9 +191,6 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
     async_dispatcher_connect(hass, SIGNAL_NEW_BULB, async_handle_new_bulb)
 
-    for interface in interfaces:
-        lifx_manager.start_discovery(interface)
-
     # Register services.
     platform = entity_platform.current_platform.get()
 
@@ -268,7 +265,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         schema=cv.make_entity_service_schema({}),
     )
 
-    return True
+    for interface in interfaces:
+        lifx_manager.start_discovery(interface)
 
 
 def lifx_features(bulb):
