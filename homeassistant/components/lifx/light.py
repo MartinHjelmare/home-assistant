@@ -43,7 +43,7 @@ from homeassistant.const import (
     EVENT_HOMEASSISTANT_STOP,
 )
 from homeassistant.core import callback
-import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_platform
 import homeassistant.helpers.device_registry as dr
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.service import async_extract_entity_ids
@@ -71,15 +71,6 @@ SERVICE_LIFX_SET_STATE = "set_state"
 ATTR_INFRARED = "infrared"
 ATTR_ZONES = "zones"
 ATTR_POWER = "power"
-
-LIFX_SET_STATE_SCHEMA = cv.make_entity_service_schema(
-    {
-        **LIGHT_TURN_ON_SCHEMA,
-        ATTR_INFRARED: vol.All(vol.Coerce(int), vol.Clamp(min=0, max=255)),
-        ATTR_ZONES: vol.All(cv.ensure_list, [cv.positive_int]),
-        ATTR_POWER: cv.boolean,
-    }
-)
 
 SERVICE_EFFECT_PULSE = "effect_pulse"
 SERVICE_EFFECT_COLORLOOP = "effect_colorloop"
@@ -197,6 +188,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     for interface in interfaces:
         lifx_manager.start_discovery(interface)
 
+    # Register services.
+    platform = entity_platform.current_platform.get()
+
+    platform.async_register_entity_service(
+        SERVICE_LIFX_SET_STATE,
+        {
+            **LIGHT_TURN_ON_SCHEMA,
+            ATTR_INFRARED: vol.All(vol.Coerce(int), vol.Clamp(min=0, max=255)),
+            ATTR_ZONES: vol.All(cv.ensure_list, [cv.positive_int]),
+            ATTR_POWER: cv.boolean,
+        },
+        "set_state",
+    )
+
     return True
 
 
@@ -290,26 +295,6 @@ class LIFXManager:
             SERVICE_EFFECT_COLORLOOP,
         ]:
             self.hass.services.async_remove(LIFX_DOMAIN, service)
-
-    def register_set_state(self):
-        """Register the LIFX set_state service call."""
-
-        async def service_handler(service):
-            """Apply a service."""
-            tasks = []
-            for light in await self.async_service_to_entities(service):
-                if service.service == SERVICE_LIFX_SET_STATE:
-                    task = light.set_state(**service.data)
-                tasks.append(self.hass.async_create_task(task))
-            if tasks:
-                await asyncio.wait(tasks)
-
-        self.hass.services.async_register(
-            LIFX_DOMAIN,
-            SERVICE_LIFX_SET_STATE,
-            service_handler,
-            schema=LIFX_SET_STATE_SCHEMA,
-        )
 
     def register_effects(self):
         """Register the LIFX effects as hass service calls."""
