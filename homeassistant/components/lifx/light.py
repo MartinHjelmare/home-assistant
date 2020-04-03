@@ -39,6 +39,10 @@ from homeassistant.const import ATTR_ENTITY_ID, ATTR_MODE, EVENT_HOMEASSISTANT_S
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv, entity_platform
 import homeassistant.helpers.device_registry as dr
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.event import async_track_point_in_utc_time
 import homeassistant.util.color as color_util
 
@@ -88,6 +92,8 @@ PULSE_MODES = [
     PULSE_MODE_STROBE,
     PULSE_MODE_SOLID,
 ]
+
+SIGNAL_UPDATE_REGISTERED = "lifx_update_registered_{}"
 
 LIFX_EFFECT_SCHEMA = {
     vol.Optional(ATTR_POWER_ON, default=True): cv.boolean,
@@ -380,11 +386,10 @@ class LIFXManager:
     @callback
     def unregister(self, bulb):
         """Handle aiolifx disappearing bulbs."""
-        if bulb.mac_addr in self.entities:
-            entity = self.entities[bulb.mac_addr]
-            _LOGGER.debug("%s unregister", entity.who)
-            entity.registered = False
-            entity.async_write_ha_state()
+        _LOGGER.debug("%s unregister", bulb.mac_addr)
+        async_dispatcher_send(
+            self.hass, SIGNAL_UPDATE_REGISTERED.format(bulb.mac_addr), False
+        )
 
 
 class AwaitAioLIFX:
@@ -517,6 +522,22 @@ class LIFXLight(Light):
         if effect:
             return f"lifx_effect_{effect.name}"
         return None
+
+    async def async_added_to_hass(self):
+        """Register signal target methods."""
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_UPDATE_REGISTERED.format(self.bulb.mac_addr),
+                self.async_update_registered,
+            )
+        )
+
+    @callback
+    def async_update_registered(self, registered):
+        """Update bulb registered state."""
+        self.registered = registered
+        self.async_write_ha_state()
 
     async def update_hass(self, now=None):
         """Request new status and push it to hass."""
