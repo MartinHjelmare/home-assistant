@@ -94,6 +94,7 @@ PULSE_MODES = [
 ]
 
 SIGNAL_UPDATE_REGISTERED = "lifx_update_registered_{}"
+SIGNAL_NEW_BULB = "lifx_new_bulb"
 
 LIFX_EFFECT_SCHEMA = {
     vol.Optional(ATTR_POWER_ON, default=True): cv.boolean,
@@ -172,8 +173,23 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             # Priority 3: default interface
             interfaces = [{}]
 
-    lifx_manager = LIFXManager(hass, async_add_entities)
+    lifx_manager = LIFXManager(hass)
     hass.data[DATA_LIFX_MANAGER] = lifx_manager
+
+    @callback
+    def async_handle_new_bulb(bulb, effects_conductor):
+        """Add entity for a new bulb."""
+        if lifx_features(bulb)["multizone"]:
+            entity = LIFXStrip(bulb, effects_conductor)
+        elif lifx_features(bulb)["color"]:
+            entity = LIFXColor(bulb, effects_conductor)
+        else:
+            entity = LIFXWhite(bulb, effects_conductor)
+
+        _LOGGER.debug("Adding entity %s", entity)
+        async_add_entities([entity], True)
+
+    async_dispatcher_connect(hass, SIGNAL_NEW_BULB, async_handle_new_bulb)
 
     for interface in interfaces:
         lifx_manager.start_discovery(interface)
@@ -295,13 +311,12 @@ def merge_hsbk(base, change):
 
 
 class LIFXManager:
-    """Representation of all known LIFX entities."""
+    """Representation of all known LIFX bulbs."""
 
-    def __init__(self, hass, async_add_entities):
+    def __init__(self, hass):
         """Initialize the light."""
-        self.entities = {}
+        self.bulbs = set()
         self.hass = hass
-        self.async_add_entities = async_add_entities
         self.effects_conductor = aiolifx_effects().Conductor(hass.loop)
         self.discoveries = []
         self.cleanup_unsub = self.hass.bus.async_listen(
@@ -350,11 +365,11 @@ class LIFXManager:
 
     async def register_new_bulb(self, bulb):
         """Handle newly detected bulb."""
-        if bulb.mac_addr in self.entities:
-            entity = self.entities[bulb.mac_addr]
-            entity.registered = True
-            _LOGGER.debug("%s register AGAIN", entity.who)
-            await entity.update_hass()
+        if bulb.mac_addr in self.bulbs:
+            _LOGGER.debug("%s register AGAIN", bulb.ip_addr)
+            async_dispatcher_send(
+                self.hass, SIGNAL_UPDATE_REGISTERED.format(bulb.mac_addr), True
+            )
         else:
             _LOGGER.debug("%s register NEW", bulb.ip_addr)
 
@@ -372,21 +387,16 @@ class LIFXManager:
                 bulb.retry_count = MESSAGE_RETRIES
                 bulb.unregister_timeout = UNAVAILABLE_GRACE
 
-                if lifx_features(bulb)["multizone"]:
-                    entity = LIFXStrip(bulb, self.effects_conductor)
-                elif lifx_features(bulb)["color"]:
-                    entity = LIFXColor(bulb, self.effects_conductor)
-                else:
-                    entity = LIFXWhite(bulb, self.effects_conductor)
-
-                _LOGGER.debug("%s register READY", entity.who)
-                self.entities[bulb.mac_addr] = entity
-                self.async_add_entities([entity], True)
+                self.bulbs.add(bulb.mac_addr)
+                async_dispatcher_send(
+                    self.hass, SIGNAL_NEW_BULB, bulb, self.effects_conductor
+                )
+                _LOGGER.debug("%s register READY", bulb.ip_addr)
 
     @callback
     def unregister(self, bulb):
         """Handle aiolifx disappearing bulbs."""
-        _LOGGER.debug("%s unregister", bulb.mac_addr)
+        _LOGGER.debug("%s unregister", bulb.ip_addr)
         async_dispatcher_send(
             self.hass, SIGNAL_UPDATE_REGISTERED.format(bulb.mac_addr), False
         )
@@ -433,7 +443,7 @@ class LIFXLight(Light):
         """Initialize the light."""
         self.bulb = bulb
         self.effects_conductor = effects_conductor
-        self.registered = True
+        self._registered = True
         self.postponed_update = None
         self.lock = asyncio.Lock()
 
@@ -456,7 +466,7 @@ class LIFXLight(Light):
     @property
     def available(self):
         """Return the availability of the bulb."""
-        return self.registered
+        return self._registered
 
     @property
     def unique_id(self):
@@ -467,11 +477,6 @@ class LIFXLight(Light):
     def name(self):
         """Return the name of the bulb."""
         return self.bulb.label
-
-    @property
-    def who(self):
-        """Return a string identifying the bulb."""
-        return f"{self.bulb.ip_addr} ({self.name})"
 
     @property
     def min_mireds(self):
@@ -533,11 +538,15 @@ class LIFXLight(Light):
             )
         )
 
-    @callback
-    def async_update_registered(self, registered):
+    async def async_update_registered(self, registered):
         """Update bulb registered state."""
-        self.registered = registered
-        self.async_write_ha_state()
+        self._registered = registered
+        if not registered:
+            _LOGGER.debug("Unregistering %s", self.name)
+            self.async_write_ha_state()
+        else:
+            _LOGGER.debug("Registering %s", self.name)
+            await self.update_hass()
 
     async def update_hass(self, now=None):
         """Request new status and push it to hass."""
