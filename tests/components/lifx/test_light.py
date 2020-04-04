@@ -143,3 +143,46 @@ async def test_service_on(hass, aiolifx_discovery, aiolifx_light):
     state = hass.states.get("light.test")
     assert state is not None
     assert state.state == STATE_ON
+
+
+async def test_service_off(hass, aiolifx_discovery, aiolifx_light):
+    """Test turning a light off."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    # test from off to off
+    await hass.services.async_call(
+        "light", "turn_off", {"entity_id": "light.test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    # test from on to off
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_ON
+
+    await hass.services.async_call(
+        "light", "turn_off", {"entity_id": "light.test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
