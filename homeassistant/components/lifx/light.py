@@ -93,6 +93,8 @@ PULSE_MODES = [
     PULSE_MODE_SOLID,
 ]
 
+PING_PONG_WAIT = 0.3
+
 SIGNAL_UPDATE_REGISTERED = "lifx_update_registered_{}"
 SIGNAL_NEW_BULB = "lifx_new_bulb"
 
@@ -622,7 +624,7 @@ class LIFXLight(Light):
                     await self.set_power(ack, False, duration=fade)
 
             # Avoid state ping-pong by holding off updates as the state settles
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(PING_PONG_WAIT)
 
         # Update when the transition starts and ends
         await self.update_during_transition(fade)

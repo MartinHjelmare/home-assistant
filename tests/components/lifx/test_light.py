@@ -66,6 +66,13 @@ def aiolifx_discovery_fixture():
         yield discovery
 
 
+@pytest.fixture(name="ping_pong_wait", autouse=True)
+def ping_pong_wait_fixture():
+    """Patch ping pong sleep wait time to avoid long tests."""
+    with patch("homeassistant.components.lifx.light.PING_PONG_WAIT", 0):
+        yield
+
+
 async def test_bulb_discovery(hass, aiolifx_discovery, aiolifx_light):
     """Test discovering a bulb."""
     assert await async_setup_component(hass, DOMAIN, CONFIG)
