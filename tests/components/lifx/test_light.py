@@ -4,7 +4,7 @@ from asynctest import MagicMock, patch
 import pytest
 
 from homeassistant.components.lifx import CONF_BROADCAST, CONF_SERVER, DOMAIN
-from homeassistant.const import CONF_PORT, STATE_OFF
+from homeassistant.const import CONF_PORT, STATE_OFF, STATE_ON
 from homeassistant.setup import async_setup_component
 
 from tests.common import async_mock_service
@@ -41,20 +41,44 @@ def aiolifx_light_fixture():
     """Mock aiolifx.Light."""
     mock_light = MagicMock(
         Light,
+        color=(65535, 65535, 0, 0),
         mac_addr="12:34:56:78:91:23",
         ip_addr="1.2.3.4",
         label="test",
         power_level=0,
         product=3,
+        version="1",
     )
 
-    def mock_light_method(callb=None):
-        """Mock light method."""
+    def get_color(callb=None):
+        """Mock light get color method."""
         if callb is not None:
-            callb(mock_light, "mock color")
+            callb(mock_light, (65535, 65535, 0, 0))
 
-    mock_light.get_color.side_effect = mock_light_method
-    mock_light.get_version.side_effect = mock_light_method
+    def set_color(value, callb=None, duration=0, rapid=False):
+        """Mock light set color method."""
+        mock_light.color = value
+        if callb is not None:
+            callb(mock_light, value)
+
+    def set_power(value, callb=None, duration=0, rapid=False):
+        """Mock light set power method."""
+        if value:
+            mock_light.power_level = 65535
+        else:
+            mock_light.power_level = 0
+        if callb is not None:
+            callb(mock_light, value)
+
+    def get_version(callb=None):
+        """Mock light get version method."""
+        if callb is not None:
+            callb(mock_light, "1")
+
+    mock_light.get_color.side_effect = get_color
+    mock_light.set_color.side_effect = set_color
+    mock_light.get_version.side_effect = get_version
+    mock_light.set_power.side_effect = set_power
 
     return mock_light
 
@@ -85,3 +109,37 @@ async def test_bulb_discovery(hass, aiolifx_discovery, aiolifx_light):
     state = hass.states.get("light.test")
     assert state is not None
     assert state.state == STATE_OFF
+
+
+async def test_service_on(hass, aiolifx_discovery, aiolifx_light):
+    """Test turning a light on."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    # test from off to on
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_ON
+
+    # test from on to on
+    await hass.services.async_call(
+        "light", "turn_on", {"entity_id": "light.test"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_ON
