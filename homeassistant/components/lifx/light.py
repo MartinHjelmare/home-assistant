@@ -215,7 +215,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             return
 
         service = service_call.service
-        data = service_call.data
+        data = dict(service_call.data)  # copy to allow preprocessing to modify
         bulbs = [light.bulb for light in entities]
 
         if service == SERVICE_EFFECT_PULSE:

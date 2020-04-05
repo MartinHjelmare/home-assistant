@@ -290,3 +290,31 @@ async def test_service_effect_pulse(
     await hass.async_block_till_done()
 
     assert aiolifx_effects_conductor.start.call_count == 1
+
+
+async def test_service_effect_colorloop(
+    hass, aiolifx_discovery, aiolifx_light, aiolifx_effects_conductor
+):
+    """Test service effect colorloop."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+    assert aiolifx_effects_conductor.start.call_count == 0
+
+    # test colorloop effect
+    await hass.services.async_call(
+        DOMAIN,
+        "effect_colorloop",
+        {"entity_id": "light.test", "period": 0.05},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert aiolifx_effects_conductor.start.call_count == 1
