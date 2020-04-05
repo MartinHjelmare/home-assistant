@@ -1,6 +1,6 @@
 """Test the lifx light platform."""
 from aiolifx.aiolifx import Light
-from asynctest import MagicMock, patch
+from asynctest import MagicMock, call, patch
 import pytest
 
 from homeassistant.components.lifx import CONF_BROADCAST, CONF_SERVER, DOMAIN
@@ -318,3 +318,29 @@ async def test_service_effect_colorloop(
     await hass.async_block_till_done()
 
     assert aiolifx_effects_conductor.start.call_count == 1
+
+
+async def test_service_effect_stop(
+    hass, aiolifx_discovery, aiolifx_light, aiolifx_effects_conductor
+):
+    """Test service effect stop."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+    assert aiolifx_effects_conductor.stop.call_count == 0
+
+    # test stop effect
+    await hass.services.async_call(
+        DOMAIN, "effect_stop", {"entity_id": "light.test"}, blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert aiolifx_effects_conductor.stop.call_count == 1
+    assert aiolifx_effects_conductor.stop.call_args == call([aiolifx_light])
