@@ -99,8 +99,8 @@ def ping_pong_wait_fixture():
         yield
 
 
-async def test_bulb_discovery(hass, aiolifx_discovery, aiolifx_light):
-    """Test discovering a bulb."""
+async def test_light_discovery(hass, aiolifx_discovery, aiolifx_light):
+    """Test discovering a light."""
     assert await async_setup_component(hass, DOMAIN, CONFIG)
     await hass.async_block_till_done()
 
@@ -111,6 +111,28 @@ async def test_bulb_discovery(hass, aiolifx_discovery, aiolifx_light):
     state = hass.states.get("light.test")
     assert state is not None
     assert state.state == STATE_OFF
+
+
+async def test_registering_already_registered(hass, aiolifx_discovery, aiolifx_light):
+    """Test registering an already registered light."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    aiolifx_light.power_level = 65535
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_ON
 
 
 async def test_service_on(hass, aiolifx_discovery, aiolifx_light):
