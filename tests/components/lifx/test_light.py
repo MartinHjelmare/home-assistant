@@ -36,6 +36,13 @@ def aiolifx_scan_fixture():
         yield
 
 
+@pytest.fixture(name="aiolifx_effects_conductor", autouse=True)
+def aiolifx_effects_conductor_fixture():
+    """Patch aiolifx_effects conductor."""
+    with patch("aiolifx_effects.Conductor", autospec=True) as conductor_class:
+        yield conductor_class.return_value
+
+
 @pytest.fixture(name="aiolifx_light")
 def aiolifx_light_fixture():
     """Mock aiolifx.Light."""
@@ -231,3 +238,55 @@ async def test_service_off(hass, aiolifx_discovery, aiolifx_light):
     state = hass.states.get("light.test")
     assert state is not None
     assert state.state == STATE_OFF
+
+
+async def test_service_set_state(hass, aiolifx_discovery, aiolifx_light):
+    """Test service set state."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    # test from off to on
+    await hass.services.async_call(
+        DOMAIN, "set_state", {"entity_id": "light.test", "power": True}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_ON
+
+
+async def test_service_effect_pulse(
+    hass, aiolifx_discovery, aiolifx_light, aiolifx_effects_conductor
+):
+    """Test service effect pulse."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+    assert aiolifx_effects_conductor.start.call_count == 0
+
+    # test blink mode effect
+    await hass.services.async_call(
+        DOMAIN,
+        "effect_pulse",
+        {"entity_id": "light.test", "mode": "blink"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert aiolifx_effects_conductor.start.call_count == 1
