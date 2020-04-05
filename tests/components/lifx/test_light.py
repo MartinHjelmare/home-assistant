@@ -4,7 +4,7 @@ from asynctest import MagicMock, patch
 import pytest
 
 from homeassistant.components.lifx import CONF_BROADCAST, CONF_SERVER, DOMAIN
-from homeassistant.const import CONF_PORT, STATE_OFF, STATE_ON
+from homeassistant.const import CONF_PORT, STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.setup import async_setup_component
 
 from tests.common import async_mock_service
@@ -133,6 +133,27 @@ async def test_registering_already_registered(hass, aiolifx_discovery, aiolifx_l
     state = hass.states.get("light.test")
     assert state is not None
     assert state.state == STATE_ON
+
+
+async def test_unregister_light(hass, aiolifx_discovery, aiolifx_light):
+    """Test unregistering a registered light."""
+    assert await async_setup_component(hass, DOMAIN, CONFIG)
+    await hass.async_block_till_done()
+
+    manager = aiolifx_discovery.call_args[0][1]
+    manager.register(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_OFF
+
+    manager.unregister(aiolifx_light)
+    await hass.async_block_till_done()
+
+    state = hass.states.get("light.test")
+    assert state is not None
+    assert state.state == STATE_UNAVAILABLE
 
 
 async def test_service_on(hass, aiolifx_discovery, aiolifx_light):
