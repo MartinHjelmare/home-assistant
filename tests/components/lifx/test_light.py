@@ -53,13 +53,14 @@ def aiolifx_light_fixture():
     def get_color(callb=None):
         """Mock light get color method."""
         if callb is not None:
-            callb(mock_light, (65535, 65535, 0, 0))
+            callb(mock_light, MagicMock())
+        return mock_light.color
 
     def set_color(value, callb=None, duration=0, rapid=False):
         """Mock light set color method."""
         mock_light.color = value
         if callb is not None:
-            callb(mock_light, value)
+            callb(mock_light, MagicMock())
 
     def set_power(value, callb=None, duration=0, rapid=False):
         """Mock light set power method."""
@@ -68,12 +69,13 @@ def aiolifx_light_fixture():
         else:
             mock_light.power_level = 0
         if callb is not None:
-            callb(mock_light, value)
+            callb(mock_light, MagicMock())
 
     def get_version(callb=None):
         """Mock light get version method."""
         if callb is not None:
-            callb(mock_light, "1")
+            callb(mock_light, MagicMock())
+        return ("1", "2")
 
     mock_light.get_color.side_effect = get_color
     mock_light.set_color.side_effect = set_color
