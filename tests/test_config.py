@@ -6,7 +6,6 @@ import os
 from unittest import mock
 from unittest.mock import Mock
 
-import asynctest
 from asynctest import CoroutineMock, patch
 import pytest
 import voluptuous as vol
@@ -505,14 +504,14 @@ async def test_loading_configuration_from_packages(hass):
         )
 
 
-@asynctest.mock.patch("homeassistant.helpers.check_config.async_check_ha_config_file")
+@patch("homeassistant.helpers.check_config.async_check_ha_config_file")
 async def test_check_ha_config_file_correct(mock_check, hass):
     """Check that restart propagates to stop."""
     mock_check.return_value = check_config.HomeAssistantConfig()
     assert await config_util.async_check_ha_config_file(hass) is None
 
 
-@asynctest.mock.patch("homeassistant.helpers.check_config.async_check_ha_config_file")
+@patch("homeassistant.helpers.check_config.async_check_ha_config_file")
 async def test_check_ha_config_file_wrong(mock_check, hass):
     """Check that restart with a bad config doesn't propagate to stop."""
     mock_check.return_value = check_config.HomeAssistantConfig()
@@ -521,7 +520,7 @@ async def test_check_ha_config_file_wrong(mock_check, hass):
     assert await config_util.async_check_ha_config_file(hass) == "bad"
 
 
-@asynctest.mock.patch("homeassistant.config.os.path.isfile", return_value=True)
+@patch("homeassistant.config.os.path.isfile", return_value=True)
 async def test_async_hass_config_yaml_merge(merge_log_err, hass):
     """Test merge during async config reload."""
     config = {
