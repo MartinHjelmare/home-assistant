@@ -545,9 +545,8 @@ async def test_async_hass_config_yaml_merge(merge_log_err, hass):
     assert len(conf["light"]) == 1
 
 
-# pylint: disable=redefined-outer-name
-@pytest.fixture
-def merge_log_err(hass):
+@pytest.fixture(name="merge_log_err")
+def merge_log_err_fixture(hass):
     """Patch _merge_log_error from packages."""
     with mock.patch("homeassistant.config._LOGGER.error") as logerr:
         yield logerr
