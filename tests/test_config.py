@@ -31,6 +31,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import SOURCE_STORAGE, HomeAssistantError
 import homeassistant.helpers.check_config as check_config
+import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.entity import Entity
 from homeassistant.loader import async_get_integration
 from homeassistant.util import dt as dt_util
@@ -991,6 +992,7 @@ async def test_component_config_exceptions(hass, caplog):
     [
         ("zone", vol.Schema({vol.Optional("zone", default=list): [int]}), "list"),
         ("zone", vol.Schema({vol.Optional("zone", default=[]): [int]}), "list"),
+        ("zone", vol.Schema({"zone": vol.All(cv.ensure_list, [{}])}), "list"),
         (
             "zone",
             vol.Schema({vol.Optional("zone", default={}): {vol.Optional("hello"): 1}}),
