@@ -521,9 +521,7 @@ async def test_check_ha_config_file_wrong(mock_check, hass):
     assert await config_util.async_check_ha_config_file(hass) == "bad"
 
 
-@asynctest.mock.patch(
-    "homeassistant.config.os.path.isfile", mock.Mock(return_value=True)
-)
+@asynctest.mock.patch("homeassistant.config.os.path.isfile", return_value=True)
 async def test_async_hass_config_yaml_merge(merge_log_err, hass):
     """Test merge during async config reload."""
     config = {
