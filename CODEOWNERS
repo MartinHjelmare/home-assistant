@@ -416,6 +416,7 @@ homeassistant/components/stream/* @hunterjm @uvjustin
 homeassistant/components/stt/* @pvizeli
 homeassistant/components/suez_water/* @ooii
 homeassistant/components/sun/* @Swamp-Ig
+homeassistant/components/supervisor_api_test/* @MartinHjelmare
 homeassistant/components/supla/* @mwegrzynek
 homeassistant/components/surepetcare/* @benleb
 homeassistant/components/swiss_hydrological_data/* @fabaff

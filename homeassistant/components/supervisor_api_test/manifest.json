@@ -1,0 +1,12 @@
+{
+  "domain": "supervisor_api_test",
+  "name": "Supervisor API Test",
+  "config_flow": true,
+  "documentation": "https://www.home-assistant.io/integrations/supervisor_api_test",
+  "dependencies": [
+    "hassio"
+  ],
+  "codeowners": [
+    "@MartinHjelmare"
+  ]
+}
