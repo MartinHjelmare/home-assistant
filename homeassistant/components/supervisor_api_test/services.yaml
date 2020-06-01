@@ -7,3 +7,12 @@ is_addon_installed:
     repository:
       description: The addon repository id to check.
       example: core
+is_addon_started:
+  description: Log if addon is started.
+  fields:
+    slug:
+      description: The addon slug to check as defined in the add-on config.json.
+      example: ssh
+    repository:
+      description: The addon repository id to check.
+      example: core
