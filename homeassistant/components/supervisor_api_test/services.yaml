@@ -2,17 +2,26 @@ is_addon_installed:
   description: Log if addon is installed.
   fields:
     slug:
-      description: The addon slug to check as defined in the add-on config.json.
+      description: The addon slug as defined in the add-on config.json.
       example: ssh
     repository:
-      description: The addon repository id to check.
+      description: The addon repository id.
       example: core
 is_addon_started:
   description: Log if addon is started.
   fields:
     slug:
-      description: The addon slug to check as defined in the add-on config.json.
+      description: The addon slug as defined in the add-on config.json.
       example: ssh
     repository:
-      description: The addon repository id to check.
+      description: The addon repository id.
+      example: core
+install_addon:
+  description: Install addon.
+  fields:
+    slug:
+      description: The addon slug as defined in the add-on config.json.
+      example: ssh
+    repository:
+      description: The addon repository id.
       example: core
