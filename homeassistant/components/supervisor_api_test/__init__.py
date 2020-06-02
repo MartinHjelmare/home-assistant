@@ -72,22 +72,24 @@ class SupervisorServices:
         """Log if addon is installed."""
         slug = call.data["slug"]
         repository = call.data["repository"]
-        info = await self._hassio.async_get_addon_info(slug, repository)
+        addon_id = f"{repository}_{slug}"
+        info = await self._hassio.async_get_addon_info(addon_id)
         is_addon_installed = info["version"] is not None
-        _LOGGER.warning(
-            "Add-on %s_%s installed: %s", repository, slug, is_addon_installed
-        )
+        _LOGGER.warning("Add-on %s installed: %s", addon_id, is_addon_installed)
 
     async def async_is_addon_started(self, call):
         """Log if addon is started."""
         slug = call.data["slug"]
         repository = call.data["repository"]
-        info = await self._hassio.async_get_addon_info(slug, repository)
+        addon_id = f"{repository}_{slug}"
+        info = await self._hassio.async_get_addon_info(addon_id)
         is_addon_started = info["state"] == "started"
-        _LOGGER.warning("Add-on %s_%s started: %s", repository, slug, is_addon_started)
+        _LOGGER.warning("Add-on %s started: %s", addon_id, is_addon_started)
 
     async def async_install_addon(self, call):
         """Install addon."""
         slug = call.data["slug"]
         repository = call.data["repository"]
-        await self._hassio.async_install_addon(slug, repository)
+        addon_id = f"{repository}_{slug}"
+        await self._hassio.async_install_addon(addon_id)
+        _LOGGER.debug("Installed add-on: %s", addon_id)
