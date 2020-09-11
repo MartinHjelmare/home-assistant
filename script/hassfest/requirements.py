@@ -125,8 +125,22 @@ def ensure_cache():
         "flake8-docstring": {
             "key": "flake8-docstrings",
             "package_name": "flake8-docstrings",
-            "installed_version": "1.5.0"
-            "dependencies": {"flake8"}
+            "installed_version": "1.5.0",
+            "dependencies": {"pydocstyle", "flake8"},
+            "full_dependencies": [
+                {
+                    "key": "pydocstyle",
+                    "package_name": "pydocstyle",
+                    "installed_version": "5.1.1",
+                    "required_version": ">=2.1"
+                },
+                {
+                    "key": "flake8",
+                    "package_name": "flake8",
+                    "installed_version": "3.8.3",
+                    "required_version": ">=3"
+                }
+            ]
         }
     }
     """
@@ -148,6 +162,7 @@ def ensure_cache():
         cache[item["package"]["key"]] = {
             **item["package"],
             "dependencies": {dep["key"] for dep in item["dependencies"]},
+            "full_dependencies": item["dependencies"],
         }
 
     PIPDEPTREE_CACHE = cache
