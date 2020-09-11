@@ -17,6 +17,8 @@ from script.gen_requirements_all import COMMENT_REQUIREMENTS
 
 from .model import Config, Integration
 
+# pylint: disable=global-statement
+
 IGNORE_PACKAGES = {
     commented.lower().replace("_", "-") for commented in COMMENT_REQUIREMENTS
 }
