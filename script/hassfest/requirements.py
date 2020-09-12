@@ -8,6 +8,7 @@ import subprocess
 import sys
 from typing import Dict, Set
 
+from packaging import version as pkg_version
 from stdlib_list import stdlib_list
 from tqdm import tqdm
 
@@ -24,6 +25,7 @@ IGNORE_PACKAGES = {
 }
 PACKAGE_REGEX = re.compile(r"^(?:--.+\s)?([-_\.\w\d]+).*==.+$")
 PIP_REGEX = re.compile(r"^(--.+\s)?([-_\.\w\d]+.*(?:==|>=|<=|~=|!=|<|>|===)?.*$)")
+PIPDEPTREE_VERSION_REGEX = re.compile(r"^(==|>=|<=|~=|!=|<|>|===)?(.+)$")
 SUPPORTED_PYTHON_TUPLES = [
     REQUIRED_PYTHON_VER[:2],
     tuple(map(operator.add, REQUIRED_PYTHON_VER, (0, 1, 0)))[:2],
@@ -73,6 +75,8 @@ def validate(integrations: Dict[str, Integration], config: Config):
             continue
 
         validate_requirements(integration)
+
+    get_requirement_conflicts()
 
 
 def validate_requirements(integration: Integration):
@@ -199,6 +203,80 @@ def get_requirements(integration: Integration, packages: Set[str]) -> Set[str]:
         to_check.extend(item["dependencies"])
 
     return all_requirements
+
+
+def get_requirement_conflicts():
+    """Return all requirement conflicts for the required and installed version."""
+    ensure_cache()
+
+    requirement_conflicts = {}
+
+    print()
+    print("Packages", len(PIPDEPTREE_CACHE))
+
+    deps = 0
+
+    for package, package_info in PIPDEPTREE_CACHE.items():
+        for dependency in package_info["full_dependencies"]:
+            if dependency["key"] == "colorlog":
+                print(dependency)
+            deps += 1
+            installed_version = str(dependency["installed_version"])
+            required_version_string = str(dependency["required_version"] or "")
+            if not required_version_string:
+                continue
+            required_versions = required_version_string.split(",")
+            for one_required_version in required_versions:
+                match = PIPDEPTREE_VERSION_REGEX.search(one_required_version)
+                if not match:
+                    print(
+                        "Failed to resolve required version for: "
+                        f"{dependency['key']}: {one_required_version}"
+                    )
+                    continue
+
+                specifier = match.group(1)
+                required_version = match.group(2)
+
+                if specifier is None:
+                    specifier = "=="
+
+                if specifier in ("<=", "<") and pkg_version.parse(
+                    installed_version
+                ) < pkg_version.parse(required_version):
+                    continue
+                if specifier in (">=", ">") and pkg_version.parse(
+                    installed_version
+                ) > pkg_version.parse(required_version):
+                    continue
+                if specifier in ("==", ">=", "~=", "<=", "===") and pkg_version.parse(
+                    installed_version
+                ) == pkg_version.parse(required_version):
+                    continue
+                if (
+                    specifier == "~="
+                    and pkg_version.parse(installed_version)
+                    > pkg_version.parse(required_version)
+                    and pkg_version.parse(installed_version).major
+                    == pkg_version.parse(required_version).major
+                ):
+                    continue
+                if specifier == "!=" and pkg_version.parse(
+                    installed_version
+                ) != pkg_version.parse(required_version):
+                    continue
+
+                if package not in requirement_conflicts:
+                    requirement_conflicts[package] = []
+                requirement_conflicts[package].append(
+                    (dependency["key"], installed_version, specifier, required_version)
+                )
+
+    print("Deps", deps)
+    print("Conflicts:", len(requirement_conflicts))
+
+    for conflict, versions in requirement_conflicts.items():
+        print(conflict, ":", versions)
 
 
 def install_requirements(integration: Integration, requirements: Set[str]) -> bool:
