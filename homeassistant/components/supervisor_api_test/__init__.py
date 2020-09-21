@@ -83,6 +83,14 @@ class SupervisorServices:
                 {vol.Required("slug"): cv.string, vol.Required("repository"): cv.string}
             ),
         )
+        self._hass.services.async_register(
+            DOMAIN,
+            "stop_addon",
+            self.async_stop_addon,
+            schema=vol.Schema(
+                {vol.Required("slug"): cv.string, vol.Required("repository"): cv.string}
+            ),
+        )
 
     async def async_is_addon_installed(self, call):
         """Log if addon is installed."""
@@ -125,3 +133,11 @@ class SupervisorServices:
         addon_id = f"{repository}_{slug}"
         await self._hassio.async_start_addon(addon_id)
         _LOGGER.warning("Started add-on: %s", addon_id)
+
+    async def async_stop_addon(self, call):
+        """Stop addon."""
+        slug = call.data["slug"]
+        repository = call.data["repository"]
+        addon_id = f"{repository}_{slug}"
+        await self._hassio.async_stop_addon(addon_id)
+        _LOGGER.warning("Stopped add-on: %s", addon_id)

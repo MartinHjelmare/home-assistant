@@ -43,3 +43,12 @@ start_addon:
     repository:
       description: The addon repository id.
       example: core
+stop_addon:
+  description: Stop addon.
+  fields:
+    slug:
+      description: The addon slug as defined in the add-on config.json.
+      example: configurator
+    repository:
+      description: The addon repository id.
+      example: core
