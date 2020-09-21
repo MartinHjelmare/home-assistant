@@ -21,7 +21,16 @@ install_addon:
   fields:
     slug:
       description: The addon slug as defined in the add-on config.json.
-      example: ssh
+      example: check_config
+    repository:
+      description: The addon repository id.
+      example: core
+uninstall_addon:
+  description: Uninstall addon.
+  fields:
+    slug:
+      description: The addon slug as defined in the add-on config.json.
+      example: check_config
     repository:
       description: The addon repository id.
       example: core

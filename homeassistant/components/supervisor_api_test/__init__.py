@@ -67,6 +67,14 @@ class SupervisorServices:
                 {vol.Required("slug"): cv.string, vol.Required("repository"): cv.string}
             ),
         )
+        self._hass.services.async_register(
+            DOMAIN,
+            "uninstall_addon",
+            self.async_uninstall_addon,
+            schema=vol.Schema(
+                {vol.Required("slug"): cv.string, vol.Required("repository"): cv.string}
+            ),
+        )
 
     async def async_is_addon_installed(self, call):
         """Log if addon is installed."""
@@ -93,3 +101,11 @@ class SupervisorServices:
         addon_id = f"{repository}_{slug}"
         await self._hassio.async_install_addon(addon_id)
         _LOGGER.debug("Installed add-on: %s", addon_id)
+
+    async def async_uninstall_addon(self, call):
+        """Uninstall addon."""
+        slug = call.data["slug"]
+        repository = call.data["repository"]
+        addon_id = f"{repository}_{slug}"
+        await self._hassio.async_uninstall_addon(addon_id)
+        _LOGGER.debug("Uninstalled add-on: %s", addon_id)
