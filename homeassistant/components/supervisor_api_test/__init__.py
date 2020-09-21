@@ -100,7 +100,7 @@ class SupervisorServices:
         repository = call.data["repository"]
         addon_id = f"{repository}_{slug}"
         await self._hassio.async_install_addon(addon_id)
-        _LOGGER.debug("Installed add-on: %s", addon_id)
+        _LOGGER.warning("Installed add-on: %s", addon_id)
 
     async def async_uninstall_addon(self, call):
         """Uninstall addon."""
@@ -108,4 +108,4 @@ class SupervisorServices:
         repository = call.data["repository"]
         addon_id = f"{repository}_{slug}"
         await self._hassio.async_uninstall_addon(addon_id)
-        _LOGGER.debug("Uninstalled add-on: %s", addon_id)
+        _LOGGER.warning("Uninstalled add-on: %s", addon_id)
