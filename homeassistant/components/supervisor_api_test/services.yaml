@@ -34,3 +34,12 @@ uninstall_addon:
     repository:
       description: The addon repository id.
       example: core
+start_addon:
+  description: Start addon.
+  fields:
+    slug:
+      description: The addon slug as defined in the add-on config.json.
+      example: configurator
+    repository:
+      description: The addon repository id.
+      example: core
