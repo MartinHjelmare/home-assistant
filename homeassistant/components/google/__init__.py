@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import logging
 
 from aiogoogle import Aiogoogle
+from aiogoogle.auth import UserCreds
 import voluptuous as vol
 from voluptuous.error import Error as VoluptuousError
 import yaml
@@ -161,6 +162,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
 
     google_entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
+    google_entry_data[DISPATCHERS] = []
     auth_manager = google_entry_data[AUTH_MANAGER] = api.AsyncConfigEntryAuth(session)
 
     await async_do_setup(hass, entry, auth_manager)
@@ -184,11 +186,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     if unload_ok:
-        dispatchers = hass.data[DOMAIN].pop(DISPATCHERS, [])
-        for unsub_dispatcher in dispatchers:
-            unsub_dispatcher()
+        google_entry_data = hass.data[DOMAIN].pop(entry.entry_id)
 
-        hass.data[DOMAIN].pop(entry.entry_id)
+        for unsub_dispatcher in google_entry_data[DISPATCHERS]:
+            unsub_dispatcher()
 
     return unload_ok
 
@@ -203,7 +204,7 @@ async def async_do_setup(
     ] = await hass.async_add_executor_job(load_config, hass.config.path(YAML_DEVICES))
     track_new_found_calendars = hass.data[DOMAIN][CONF_TRACK_NEW]
 
-    user_creds = await auth_manager.refresh()
+    user_creds = await auth_manager.refresh(UserCreds())
     client = Aiogoogle(user_creds=user_creds)
     client.oauth2 = auth_manager
     calendar_service = CalendarService(client)
@@ -278,7 +279,7 @@ async def async_setup_services(
 
     async def _scan_for_calendars(call):
         """Scan for new calendars."""
-        calendars = await calendar_service.list_events()["items"]
+        calendars = (await calendar_service.list_events())["items"]
         for calendar in calendars:
             calendar["track"] = track_new_found_calendars
             await hass.services.async_call(DOMAIN, SERVICE_FOUND_CALENDARS, calendar)
