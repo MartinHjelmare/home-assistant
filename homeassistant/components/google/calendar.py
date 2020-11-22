@@ -168,7 +168,7 @@ class GoogleCalendarData:
 
     async def async_get_events(self, hass, start_date, end_date):
         """Get all events in a specific time frame."""
-        params = self._prepare_query
+        params = self._prepare_query()
         params["timeMin"] = start_date.isoformat("T")
         params["timeMax"] = end_date.isoformat("T")
         event_list = []
