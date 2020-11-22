@@ -1,4 +1,5 @@
 """API for Google Calendars bound to Home Assistant OAuth."""
+from datetime import datetime
 from functools import wraps
 import logging
 from typing import Any
@@ -25,7 +26,11 @@ class AsyncConfigEntryAuth(Oauth2Manager):  # type: ignore
 
     def get_user_creds(self) -> UserCreds:
         """Build UserCreds from token data."""
-        return self._build_user_creds_from_res({**self._oauth_session.token})
+        token_data = {**self._oauth_session.token}
+        scopes = token_data.pop("scope").split(" ")
+        # Use offset-naive datetime explicitly to match library.
+        expires_at = datetime.utcfromtimestamp(token_data.pop("expires_at"))
+        return UserCreds(**token_data, expires_at=expires_at.isoformat(), scopes=scopes)
 
     async def refresh(
         self, user_creds: UserCreds, client_creds: ClientCreds = None

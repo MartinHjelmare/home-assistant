@@ -162,11 +162,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
     auth_manager = api.AsyncConfigEntryAuth(session)
     google_entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
+    google_entry_data[LISTENERS] = []
 
     if not await async_do_setup(hass, entry, auth_manager):
         return False
-
-    google_entry_data[LISTENERS] = []
 
     for component in PLATFORMS:
         hass.async_create_task(
