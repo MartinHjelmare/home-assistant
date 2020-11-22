@@ -3,12 +3,12 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import Any, Dict, Mapping
 
-from aiogoogle import Aiogoogle
+from aiogoogle import Aiogoogle, AiogoogleError, AuthError
 import voluptuous as vol
 from voluptuous.error import Error as VoluptuousError
 import yaml
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryNotReady
 from homeassistant.const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
@@ -166,7 +166,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     google_entry_data[LISTENERS] = []
     auth_manager = api.AsyncConfigEntryAuth(session)
 
-    await async_do_setup(hass, entry, auth_manager)
+    if not await async_do_setup(hass, entry, auth_manager):
+        return False
 
     for component in PLATFORMS:
         hass.async_create_task(
@@ -212,7 +213,17 @@ async def async_do_setup(
 
     user_creds = auth_manager.get_user_creds()
     # Refresh if needed, to make sure we are authenticated.
-    user_creds = await auth_manager.refresh(user_creds)
+    try:
+        user_creds = await auth_manager.refresh(user_creds)
+    except AuthError as exc:
+        LOGGER.error(
+            "Failed to refresh token. Please remove and re-add integration: %s",
+            exc,
+        )
+        return False
+    except AiogoogleError as exc:
+        raise ConfigEntryNotReady from exc
+
     client = Aiogoogle(user_creds=user_creds)
     client.oauth2 = auth_manager
     calendar_service = api.CalendarService(client)
@@ -228,8 +239,7 @@ async def async_do_setup(
 
     async_setup_services(hass, entry, track_new_found_calendars, calendar_service)
 
-    # Look for any new calendars
-    await hass.services.async_call(DOMAIN, SERVICE_SCAN_CALENDARS, None)
+    return True
 
 
 def async_setup_services(
