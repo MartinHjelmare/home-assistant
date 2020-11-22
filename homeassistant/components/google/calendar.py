@@ -1,9 +1,6 @@
 """Support for Google Calendar Search binary sensors."""
 import copy
 from datetime import timedelta
-import logging
-
-from httplib2 import ServerNotFoundError  # pylint: disable=import-error
 
 from homeassistant.components.calendar import (
     ENTITY_ID_FORMAT,
@@ -11,7 +8,8 @@ from homeassistant.components.calendar import (
     calculate_offset,
     is_offset_reached,
 )
-from homeassistant.helpers.entity import generate_entity_id
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import Throttle, dt
 
 from . import (
@@ -25,11 +23,14 @@ from . import (
     CONF_SEARCH,
     CONF_TRACK,
     DEFAULT_CONF_OFFSET,
-    TOKEN_FILE,
-    GoogleCalendarService,
+    SERVICE_SCAN_CALENDARS,
 )
-
-_LOGGER = logging.getLogger(__name__)
+from .const import (
+    CALENDAR_SERVICE,
+    DISCOVER_CALENDAR,
+    DISPATCHERS,
+    DOMAIN as GOOGLE_DOMAIN,
+)
 
 DEFAULT_GOOGLE_SEARCH_PARAMS = {
     "orderBy": "startTime",
@@ -40,38 +41,51 @@ DEFAULT_GOOGLE_SEARCH_PARAMS = {
 MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
 
 
-def setup_platform(hass, config, add_entities, disc_info=None):
-    """Set up the calendar platform for event devices."""
-    if disc_info is None:
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the google calendar platform."""
+
+    async def async_discover(discovery_info):
+        await _async_setup_entities(hass, entry, async_add_entities, discovery_info)
+
+    unsub = async_dispatcher_connect(hass, DISCOVER_CALENDAR, async_discover)
+    hass.data[GOOGLE_DOMAIN][DISPATCHERS].append(unsub)
+
+    # Look for any new calendars
+    await hass.services.async_call(GOOGLE_DOMAIN, SERVICE_SCAN_CALENDARS, blocking=True)
+
+
+async def _async_setup_entities(hass, entry, async_add_entities, discovery_info):
+    """Set up the Google calendars."""
+    if discovery_info is None:
         return
 
-    if not any(data[CONF_TRACK] for data in disc_info[CONF_ENTITIES]):
+    if not any(data[CONF_TRACK] for data in discovery_info[CONF_ENTITIES]):
         return
 
-    calendar_service = GoogleCalendarService(hass.config.path(TOKEN_FILE))
+    calendar_service = hass.data[GOOGLE_DOMAIN][entry.entry_id][CALENDAR_SERVICE]
     entities = []
-    for data in disc_info[CONF_ENTITIES]:
+    for data in discovery_info[CONF_ENTITIES]:
         if not data[CONF_TRACK]:
             continue
-        entity_id = generate_entity_id(
+        entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, data[CONF_DEVICE_ID], hass=hass
         )
         entity = GoogleCalendarEventDevice(
-            calendar_service, disc_info[CONF_CAL_ID], data, entity_id
+            calendar_service, discovery_info[CONF_CAL_ID], data, entity_id
         )
         entities.append(entity)
 
-    add_entities(entities, True)
+    async_add_entities(entities, True)
 
 
 class GoogleCalendarEventDevice(CalendarEventDevice):
     """A calendar event device."""
 
-    def __init__(self, calendar_service, calendar, data, entity_id):
+    def __init__(self, calendar_service, calendar_id, data, entity_id):
         """Create the Calendar event device."""
         self.data = GoogleCalendarData(
             calendar_service,
-            calendar,
+            calendar_id,
             data.get(CONF_SEARCH),
             data.get(CONF_IGNORE_AVAILABILITY),
             data.get(CONF_MAX_RESULTS),
@@ -101,9 +115,9 @@ class GoogleCalendarEventDevice(CalendarEventDevice):
         """Get all events in a specific time frame."""
         return await self.data.async_get_events(hass, start_date, end_date)
 
-    def update(self):
+    async def async_update(self):
         """Update event data."""
-        self.data.update()
+        await self.data.async_update()
         event = copy.deepcopy(self.data.event)
         if event is None:
             self._event = event
@@ -128,30 +142,21 @@ class GoogleCalendarData:
         self.event = None
 
     def _prepare_query(self):
-        try:
-            service = self.calendar_service.get()
-        except ServerNotFoundError:
-            _LOGGER.error("Unable to connect to Google")
-            return None, None
         params = dict(DEFAULT_GOOGLE_SEARCH_PARAMS)
-        params["calendarId"] = self.calendar_id
         if self.max_results:
             params["maxResults"] = self.max_results
         if self.search:
             params["q"] = self.search
 
-        return service, params
+        return params
 
     async def async_get_events(self, hass, start_date, end_date):
         """Get all events in a specific time frame."""
-        service, params = await hass.async_add_executor_job(self._prepare_query)
-        if service is None:
-            return []
+        params = self._prepare_query
         params["timeMin"] = start_date.isoformat("T")
         params["timeMax"] = end_date.isoformat("T")
 
-        events = await hass.async_add_executor_job(service.events)
-        result = await hass.async_add_executor_job(events.list(**params).execute)
+        result = await self.calendar_service.list_events(self.calendar_id, **params)
 
         items = result.get("items", [])
         event_list = []
@@ -164,15 +169,12 @@ class GoogleCalendarData:
         return event_list
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
-    def update(self):
+    async def async_update(self):
         """Get the latest data."""
-        service, params = self._prepare_query()
-        if service is None:
-            return
+        params = self._prepare_query()
         params["timeMin"] = dt.now().isoformat("T")
 
-        events = service.events()
-        result = events.list(**params).execute()
+        result = await self.calendar_service.list_events(self.calendar_id, **params)
 
         items = result.get("items", [])
 

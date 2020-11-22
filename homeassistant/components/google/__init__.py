@@ -12,13 +12,16 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_entry_oauth2_flow, config_validation as cv
-from homeassistant.helpers.entity import generate_entity_id
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.entity import async_generate_entity_id
 
 from . import api, config_flow
 from .const import (
     AUTH_MANAGER,
     CALENDAR_CONFIG,
-    CLIENT,
+    CALENDAR_SERVICE,
+    DISCOVER_CALENDAR,
+    DISPATCHERS,
     DOMAIN,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
@@ -181,6 +184,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     )
     if unload_ok:
+        dispatchers = hass.data[DOMAIN].pop(DISPATCHERS, [])
+        for unsub_dispatcher in dispatchers:
+            unsub_dispatcher()
+
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
@@ -201,7 +208,7 @@ async def async_do_setup(
     client.oauth2 = auth_manager
     calendar_service = CalendarService(client)
 
-    hass.data[DOMAIN][entry.entry_id][CLIENT] = client
+    hass.data[DOMAIN][entry.entry_id][CALENDAR_SERVICE] = CalendarService
 
     await async_setup_services(hass, entry, track_new_found_calendars, calendar_service)
 
@@ -222,12 +229,12 @@ class CalendarService:
             calendar_v3 = await client_session.discover("calendar", "v3")
             return await client_session.as_user(calendar_v3.calendarList.list())
 
-    async def list_events(self, calendar_id: str = "primary") -> dict:
+    async def list_events(self, calendar_id: str = "primary", **kwargs) -> dict:
         """List events of a calendar."""
         async with self.client as client_session:
             calendar_v3 = await client_session.discover("calendar", "v3")
             return await client_session.as_user(
-                calendar_v3.events.list(calendarId=calendar_id)
+                calendar_v3.events.list(calendarId=calendar_id, **kwargs)
             )
 
     async def insert_events(
@@ -246,9 +253,9 @@ async def async_setup_services(
 ):
     """Set up the service listeners."""
 
-    def _found_calendar(call):
+    async def _found_calendar(call):
         """Check if we know about a calendar and generate PLATFORM_DISCOVER."""
-        calendar = get_calendar_info(hass, call.data)
+        calendar = async_get_calendar_info(hass, call.data)
         if (
             hass.data[DOMAIN][entry.entry_id][CALENDAR_CONFIG].get(
                 calendar[CONF_CAL_ID]
@@ -257,16 +264,15 @@ async def async_setup_services(
         ):
             return
 
-        hass.data[DOMAIN][entry.entry_id][CALENDAR_CONFIG].update(
-            {calendar[CONF_CAL_ID]: calendar}
+        hass.data[DOMAIN][entry.entry_id][CALENDAR_CONFIG][
+            calendar[CONF_CAL_ID]
+        ] = calendar
+
+        await hass.async_add_executor_job(
+            update_config, hass.config.path(YAML_DEVICES), calendar
         )
 
-        update_config(
-            hass.config.path(YAML_DEVICES),
-            hass.data[DOMAIN][entry.entry_id][CALENDAR_CONFIG][calendar[CONF_CAL_ID]],
-        )
-
-        # TODO: Dispatch new calendar to calendar platform here.
+        async_dispatcher_send(hass, DISCOVER_CALENDAR, calendar)
 
     hass.services.async_register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
 
@@ -332,7 +338,7 @@ async def async_setup_services(
     return True
 
 
-def get_calendar_info(hass, calendar):
+def async_get_calendar_info(hass, calendar):
     """Convert data from Google into DEVICE_SCHEMA."""
     calendar_info = DEVICE_SCHEMA(
         {
@@ -341,7 +347,7 @@ def get_calendar_info(hass, calendar):
                 {
                     CONF_TRACK: calendar["track"],
                     CONF_NAME: calendar["summary"],
-                    CONF_DEVICE_ID: generate_entity_id(
+                    CONF_DEVICE_ID: async_generate_entity_id(
                         "{}", calendar["summary"], hass=hass
                     ),
                 }

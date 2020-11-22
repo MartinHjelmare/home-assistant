@@ -4,7 +4,9 @@ DOMAIN = "google"
 
 AUTH_MANAGER = "auth_manager"
 CALENDAR_CONFIG = "calendar_config"
-CLIENT = "client"
+CALENDAR_SERVICE = "calendar_service"
+DISCOVER_CALENDAR = "google_discover_calendar"
+DISPATCHERS = "google_dispatchers"
 GOOGLE_CALENDAR_API = "calendar_api"
 
 OAUTH2_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth"
