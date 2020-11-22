@@ -2,6 +2,8 @@
 import copy
 from datetime import timedelta
 
+from aiogoogle import AiogoogleError
+
 from homeassistant.components.calendar import (
     ENTITY_ID_FORMAT,
     CalendarEventDevice,
@@ -165,11 +167,14 @@ class GoogleCalendarData:
         params = self._prepare_query
         params["timeMin"] = start_date.isoformat("T")
         params["timeMax"] = end_date.isoformat("T")
+        event_list = []
 
-        result = await self.calendar_service.list_events(self.calendar_id, **params)
+        try:
+            result = await self.calendar_service.list_events(self.calendar_id, **params)
+        except AiogoogleError:
+            return event_list
 
         items = result.get("items", [])
-        event_list = []
         for item in items:
             if not self.ignore_availability and "transparency" in item:
                 if item["transparency"] == "opaque":
@@ -184,7 +189,10 @@ class GoogleCalendarData:
         params = self._prepare_query()
         params["timeMin"] = dt.now().isoformat("T")
 
-        result = await self.calendar_service.list_events(self.calendar_id, **params)
+        try:
+            result = await self.calendar_service.list_events(self.calendar_id, **params)
+        except AiogoogleError:
+            return
 
         items = result.get("items", [])
 
