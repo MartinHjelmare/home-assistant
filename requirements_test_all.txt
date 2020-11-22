@@ -96,6 +96,9 @@ aioflo==0.4.1
 # homeassistant.components.freebox
 aiofreepybox==0.0.8
 
+# homeassistant.components.google
+aiogoogle==0.1.17
+
 # homeassistant.components.guardian
 aioguardian==1.0.4
 
@@ -348,9 +351,6 @@ goalzero==0.1.4
 # homeassistant.components.gogogate2
 gogogate2-api==2.0.3
 
-# homeassistant.components.google
-google-api-python-client==1.6.4
-
 # homeassistant.components.google_pubsub
 google-cloud-pubsub==2.1.0
 
@@ -405,7 +405,6 @@ homeconnect==0.6.3
 # homeassistant.components.homematicip_cloud
 homematicip==0.12.1
 
-# homeassistant.components.google
 # homeassistant.components.remember_the_milk
 httplib2==0.10.3
 
@@ -500,9 +499,6 @@ numato-gpio==0.8.0
 # homeassistant.components.tensorflow
 # homeassistant.components.trend
 numpy==1.19.2
-
-# homeassistant.components.google
-oauth2client==4.0.0
 
 # homeassistant.components.profiler
 objgraph==3.4.1
