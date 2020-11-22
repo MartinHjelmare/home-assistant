@@ -1,6 +1,9 @@
 """Constants for the Google Calendars integration."""
+import logging
 
 DOMAIN = "google"
+
+LOGGER = logging.getLogger(__package__)
 
 CALENDAR_CONFIG = "google_calendar_config"
 CALENDAR_SERVICE = "google_calendar_service"

@@ -1,7 +1,6 @@
 """The Google Calendars integration."""
 import asyncio
 from datetime import datetime, timedelta
-import logging
 from typing import Any, Dict, Mapping
 
 from aiogoogle import Aiogoogle
@@ -27,11 +26,10 @@ from .const import (
     DISCOVER_CALENDAR,
     DOMAIN,
     LISTENERS,
+    LOGGER,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
 )
-
-_LOGGER = logging.getLogger(__name__)
 
 CONF_TRACK_NEW = "track_new_calendar"
 
@@ -217,7 +215,7 @@ async def async_do_setup(
     user_creds = await auth_manager.refresh(user_creds)
     client = Aiogoogle(user_creds=user_creds)
     client.oauth2 = auth_manager
-    calendar_service = CalendarService(client)
+    calendar_service = api.CalendarService(client)
 
     async def close_session(event: Event) -> None:
         """Close any active client session."""
@@ -234,46 +232,11 @@ async def async_do_setup(
     await hass.services.async_call(DOMAIN, SERVICE_SCAN_CALENDARS, None)
 
 
-class CalendarService:
-    """Represent a calendar service."""
-
-    def __init__(self, client: Aiogoogle) -> None:
-        """Set up instance."""
-        self.client = client
-        # Close the any client.active_session attribute when exiting app.
-
-    async def list_calendars(self) -> dict:
-        """List calendars."""
-        calendar_v3 = await self.client.discover("calendar", "v3")
-        result: dict = await self.client.as_user(calendar_v3.calendarList.list())
-        return result
-
-    async def list_events(self, calendar_id: str = "primary", **kwargs: Any) -> dict:
-        """List events of a calendar."""
-        calendar_v3 = await self.client.discover("calendar", "v3")
-        result: dict = await self.client.as_user(
-            calendar_v3.events.list(calendarId=calendar_id, **kwargs)
-        )
-        _LOGGER.debug("List events result: %s", result)
-        return result
-
-    async def insert_events(
-        self, *, calendar_id: str = "primary", event_data: dict
-    ) -> dict:
-        """Insert calendar events."""
-        calendar_v3 = await self.client.discover("calendar", "v3")
-        result: dict = await self.client.as_user(
-            calendar_v3.events.insert(calendarId=calendar_id, **event_data)
-        )
-        _LOGGER.debug("Inserted events result: %s", result)
-        return result
-
-
 def async_setup_services(
     hass: HomeAssistant,
     entry: ConfigEntry,
     track_new_found_calendars: bool,
-    calendar_service: CalendarService,
+    calendar_service: api.CalendarService,
 ) -> None:
     """Set up the service listeners."""
 
@@ -399,7 +362,7 @@ def load_config(path: str) -> dict:
                     calendars.update({calendar[CONF_CAL_ID]: DEVICE_SCHEMA(calendar)})
                 except VoluptuousError as exception:
                     # keep going
-                    _LOGGER.warning("Calendar Invalid Data: %s", exception)
+                    LOGGER.warning("Calendar Invalid Data: %s", exception)
     except FileNotFoundError:
         # When YAML file could not be loaded/did not contain a dict
         return {}
