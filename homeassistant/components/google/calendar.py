@@ -8,6 +8,7 @@ from homeassistant.components.calendar import (
     calculate_offset,
     is_offset_reached,
 )
+from homeassistant.core import callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.util import Throttle, dt
@@ -28,8 +29,8 @@ from . import (
 from .const import (
     CALENDAR_SERVICE,
     DISCOVER_CALENDAR,
-    DISPATCHERS,
     DOMAIN as GOOGLE_DOMAIN,
+    LISTENERS,
 )
 
 DEFAULT_GOOGLE_SEARCH_PARAMS = {
@@ -44,24 +45,33 @@ MIN_TIME_BETWEEN_UPDATES = timedelta(minutes=15)
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the google calendar platform."""
 
-    async def async_discover(discovery_info):
-        await _async_setup_entities(hass, entry, async_add_entities, discovery_info)
+    created_calendars = set()
+
+    @callback
+    def async_discover(discovery_info):
+        _async_setup_entities(
+            hass, entry, async_add_entities, discovery_info, created_calendars
+        )
 
     unsub = async_dispatcher_connect(hass, DISCOVER_CALENDAR, async_discover)
-    hass.data[GOOGLE_DOMAIN][entry.entry_id][DISPATCHERS].append(unsub)
+    hass.data[GOOGLE_DOMAIN][entry.entry_id][LISTENERS].append(unsub)
 
     # Look for any new calendars
     await hass.services.async_call(GOOGLE_DOMAIN, SERVICE_SCAN_CALENDARS, blocking=True)
 
 
-async def _async_setup_entities(hass, entry, async_add_entities, discovery_info):
+def _async_setup_entities(
+    hass, entry, async_add_entities, discovery_info, created_calendars
+):
     """Set up the Google calendars."""
-    if discovery_info is None:
+    calendar_id = discovery_info[CONF_CAL_ID]
+
+    if calendar_id in created_calendars or not any(
+        data[CONF_TRACK] for data in discovery_info[CONF_ENTITIES]
+    ):
         return
 
-    if not any(data[CONF_TRACK] for data in discovery_info[CONF_ENTITIES]):
-        return
-
+    created_calendars.add(calendar_id)
     calendar_service = hass.data[GOOGLE_DOMAIN][entry.entry_id][CALENDAR_SERVICE]
     entities = []
     for data in discovery_info[CONF_ENTITIES]:

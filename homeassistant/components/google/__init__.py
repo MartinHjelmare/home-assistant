@@ -2,28 +2,31 @@
 import asyncio
 from datetime import datetime, timedelta
 import logging
+from typing import Any, Dict, Mapping
 
 from aiogoogle import Aiogoogle
-from aiogoogle.auth import UserCreds
 import voluptuous as vol
 from voluptuous.error import Error as VoluptuousError
 import yaml
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_CLIENT_ID, CONF_CLIENT_SECRET
-from homeassistant.core import HomeAssistant
+from homeassistant.const import (
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
+    EVENT_HOMEASSISTANT_STOP,
+)
+from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.helpers import config_entry_oauth2_flow, config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import async_generate_entity_id
 
 from . import api, config_flow
 from .const import (
-    AUTH_MANAGER,
     CALENDAR_CONFIG,
     CALENDAR_SERVICE,
     DISCOVER_CALENDAR,
-    DISPATCHERS,
     DOMAIN,
+    LISTENERS,
     OAUTH2_AUTHORIZE,
     OAUTH2_TOKEN,
 )
@@ -126,7 +129,7 @@ CONFIG_SCHEMA = vol.Schema(
 PLATFORMS = ["calendar"]
 
 
-async def async_setup(hass: HomeAssistant, config: dict):
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Google Calendars component."""
     hass.data[DOMAIN] = {}
 
@@ -162,8 +165,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
 
     google_entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
-    google_entry_data[DISPATCHERS] = []
-    auth_manager = google_entry_data[AUTH_MANAGER] = api.AsyncConfigEntryAuth(session)
+    google_entry_data[LISTENERS] = []
+    auth_manager = api.AsyncConfigEntryAuth(session)
 
     await async_do_setup(hass, entry, auth_manager)
 
@@ -188,8 +191,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if unload_ok:
         google_entry_data = hass.data[DOMAIN].pop(entry.entry_id)
 
-        for unsub_dispatcher in google_entry_data[DISPATCHERS]:
+        for unsub_dispatcher in google_entry_data[LISTENERS]:
             unsub_dispatcher()
+
+        calendar_service = google_entry_data[CALENDAR_SERVICE]
+        if calendar_service.client.active_session:
+            await calendar_service.client.active_session.close()
 
     return unload_ok
 
@@ -199,19 +206,29 @@ async def async_do_setup(
 ) -> None:
     """Run the setup after we have everything configured."""
     # Load calendars the user has configured
-    hass.data[DOMAIN][entry.entry_id][
-        CALENDAR_CONFIG
-    ] = await hass.async_add_executor_job(load_config, hass.config.path(YAML_DEVICES))
+    google_entry_data = hass.data[DOMAIN][entry.entry_id]
+    google_entry_data[CALENDAR_CONFIG] = await hass.async_add_executor_job(
+        load_config, hass.config.path(YAML_DEVICES)
+    )
     track_new_found_calendars = hass.data[DOMAIN][CONF_TRACK_NEW]
 
-    user_creds = await auth_manager.refresh(UserCreds())
+    user_creds = auth_manager.get_user_creds()
+    # Refresh if needed, to make sure we are authenticated.
+    user_creds = await auth_manager.refresh(user_creds)
     client = Aiogoogle(user_creds=user_creds)
     client.oauth2 = auth_manager
     calendar_service = CalendarService(client)
 
-    hass.data[DOMAIN][entry.entry_id][CALENDAR_SERVICE] = CalendarService
+    async def close_session(event: Event) -> None:
+        """Close any active client session."""
+        if calendar_service.client.active_session:
+            await calendar_service.client.active_session.close()
 
-    await async_setup_services(hass, entry, track_new_found_calendars, calendar_service)
+    unsubscribe = hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, close_session)
+    google_entry_data[LISTENERS].append(unsubscribe)
+    google_entry_data[CALENDAR_SERVICE] = calendar_service
+
+    async_setup_services(hass, entry, track_new_found_calendars, calendar_service)
 
     # Look for any new calendars
     await hass.services.async_call(DOMAIN, SERVICE_SCAN_CALENDARS, None)
@@ -223,40 +240,49 @@ class CalendarService:
     def __init__(self, client: Aiogoogle) -> None:
         """Set up instance."""
         self.client = client
+        # Close the any client.active_session attribute when exiting app.
 
     async def list_calendars(self) -> dict:
         """List calendars."""
-        async with self.client as client_session:
-            calendar_v3 = await client_session.discover("calendar", "v3")
-            return await client_session.as_user(calendar_v3.calendarList.list())
+        calendar_v3 = await self.client.discover("calendar", "v3")
+        result: dict = await self.client.as_user(calendar_v3.calendarList.list())
+        return result
 
-    async def list_events(self, calendar_id: str = "primary", **kwargs) -> dict:
+    async def list_events(self, calendar_id: str = "primary", **kwargs: Any) -> dict:
         """List events of a calendar."""
-        async with self.client as client_session:
-            calendar_v3 = await client_session.discover("calendar", "v3")
-            return await client_session.as_user(
-                calendar_v3.events.list(calendarId=calendar_id, **kwargs)
-            )
+        calendar_v3 = await self.client.discover("calendar", "v3")
+        result: dict = await self.client.as_user(
+            calendar_v3.events.list(calendarId=calendar_id, **kwargs)
+        )
+        _LOGGER.debug("List events result: %s", result)
+        return result
 
     async def insert_events(
         self, *, calendar_id: str = "primary", event_data: dict
     ) -> dict:
         """Insert calendar events."""
-        async with self.client as client_session:
-            calendar_v3 = await client_session.discover("calendar", "v3")
-            return await client_session.as_user(
-                calendar_v3.events.insert(calendarId=calendar_id, **event_data)
-            )
+        calendar_v3 = await self.client.discover("calendar", "v3")
+        result: dict = await self.client.as_user(
+            calendar_v3.events.insert(calendarId=calendar_id, **event_data)
+        )
+        _LOGGER.debug("Inserted events result: %s", result)
+        return result
 
 
-async def async_setup_services(
-    hass, entry, track_new_found_calendars, calendar_service
-):
+def async_setup_services(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    track_new_found_calendars: bool,
+    calendar_service: CalendarService,
+) -> None:
     """Set up the service listeners."""
 
-    async def _found_calendar(call):
+    async def _found_calendar(call: ServiceCall) -> None:
         """Check if we know about a calendar and generate PLATFORM_DISCOVER."""
         calendar = async_get_calendar_info(hass, call.data)
+        # Always dispatch calendar to make sure entities are created.
+        async_dispatcher_send(hass, DISCOVER_CALENDAR, calendar)
+
         if (
             hass.data[DOMAIN][entry.entry_id][CALENDAR_CONFIG].get(
                 calendar[CONF_CAL_ID]
@@ -273,20 +299,25 @@ async def async_setup_services(
             update_config, hass.config.path(YAML_DEVICES), calendar
         )
 
-        async_dispatcher_send(hass, DISCOVER_CALENDAR, calendar)
-
     hass.services.async_register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
 
-    async def _scan_for_calendars(call):
+    async def _scan_for_calendars(call: ServiceCall) -> None:
         """Scan for new calendars."""
-        calendars = (await calendar_service.list_events())["items"]
+        calendars = (await calendar_service.list_calendars())["items"]
+        tasks = []
+
         for calendar in calendars:
             calendar["track"] = track_new_found_calendars
-            await hass.services.async_call(DOMAIN, SERVICE_FOUND_CALENDARS, calendar)
+            tasks.append(
+                hass.services.async_call(DOMAIN, SERVICE_FOUND_CALENDARS, calendar)
+            )
+
+        if tasks:
+            await asyncio.gather(*tasks)
 
     hass.services.async_register(DOMAIN, SERVICE_SCAN_CALENDARS, _scan_for_calendars)
 
-    async def _add_event(call):
+    async def _add_event(call: ServiceCall) -> None:
         """Add a new event to calendar."""
         start = {}
         end = {}
@@ -336,12 +367,11 @@ async def async_setup_services(
     hass.services.async_register(
         DOMAIN, SERVICE_ADD_EVENT, _add_event, schema=ADD_EVENT_SERVICE_SCHEMA
     )
-    return True
 
 
-def async_get_calendar_info(hass, calendar):
+def async_get_calendar_info(hass: HomeAssistant, calendar: Mapping) -> Dict[str, Any]:
     """Convert data from Google into DEVICE_SCHEMA."""
-    calendar_info = DEVICE_SCHEMA(
+    calendar_info: Dict[str, Any] = DEVICE_SCHEMA(
         {
             CONF_CAL_ID: calendar["id"],
             CONF_ENTITIES: [
@@ -358,7 +388,7 @@ def async_get_calendar_info(hass, calendar):
     return calendar_info
 
 
-def load_config(path):
+def load_config(path: str) -> dict:
     """Load the google_calendar_devices.yaml."""
     calendars = {}
     try:
@@ -377,7 +407,7 @@ def load_config(path):
     return calendars
 
 
-def update_config(path, calendar):
+def update_config(path: str, calendar: dict) -> None:
     """Write the google_calendar_devices.yaml."""
     with open(path, "a") as out:
         out.write("\n")

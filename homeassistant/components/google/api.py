@@ -5,7 +5,7 @@ from aiogoogle.auth.creds import ClientCreds, UserCreds
 from homeassistant.helpers import config_entry_oauth2_flow
 
 
-class AsyncConfigEntryAuth(Oauth2Manager):
+class AsyncConfigEntryAuth(Oauth2Manager):  # type: ignore
     """Provide Google Calendars authentication tied to an OAuth2 based config entry."""
 
     def __init__(
@@ -16,6 +16,10 @@ class AsyncConfigEntryAuth(Oauth2Manager):
         super().__init__()
         self._oauth_session = oauth_session
 
+    def get_user_creds(self) -> UserCreds:
+        """Build UserCreds from token data."""
+        return self._build_user_creds_from_res({**self._oauth_session.token})
+
     async def refresh(
         self, user_creds: UserCreds, client_creds: ClientCreds = None
     ) -> UserCreds:
@@ -23,4 +27,4 @@ class AsyncConfigEntryAuth(Oauth2Manager):
         if not self._oauth_session.valid_token:
             await self._oauth_session.async_ensure_token_valid()
 
-        return self._build_user_creds_from_res(self._oauth_session.token)
+        return self.get_user_creds()

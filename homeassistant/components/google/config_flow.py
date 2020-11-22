@@ -25,9 +25,14 @@ class OAuth2FlowHandler(
     def extra_authorize_data(self) -> dict:
         """Extra data that needs to be appended to the authorize url."""
         scopes = SCOPES[GOOGLE_CALENDAR_API]
-        return {"scope": " ".join(scopes)}
+        return {
+            "access_type": "offline",
+            "include_granted_scopes": "true",
+            "prompt": "consent",
+            "scope": " ".join(scopes),
+        }
 
-    async def async_step_user(
+    async def async_step_user(  # type: ignore
         self, user_input: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Handle flow start."""
