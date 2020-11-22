@@ -25,7 +25,6 @@ from . import (
     CONF_OFFSET,
     CONF_SEARCH,
     CONF_TRACK,
-    DEFAULT_CONF_OFFSET,
     SERVICE_SCAN_CALENDARS,
 )
 from .const import (
@@ -99,12 +98,12 @@ class GoogleCalendarEventDevice(CalendarEventDevice):
             calendar_service,
             calendar_id,
             data.get(CONF_SEARCH),
-            data.get(CONF_IGNORE_AVAILABILITY),
+            data[CONF_IGNORE_AVAILABILITY],
             data.get(CONF_MAX_RESULTS),
         )
         self._event = None
         self._name = data[CONF_NAME]
-        self._offset = data.get(CONF_OFFSET, DEFAULT_CONF_OFFSET)
+        self._offset = data[CONF_OFFSET]
         self._offset_reached = False
         self.entity_id = entity_id
 

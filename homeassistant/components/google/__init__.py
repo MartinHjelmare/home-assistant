@@ -72,9 +72,9 @@ _SINGLE_CALSEARCH_CONFIG = vol.Schema(
         vol.Required(CONF_NAME): cv.string,
         vol.Required(CONF_DEVICE_ID): cv.string,
         vol.Optional(CONF_IGNORE_AVAILABILITY, default=True): cv.boolean,
-        vol.Optional(CONF_OFFSET): cv.string,
+        vol.Optional(CONF_OFFSET, default=DEFAULT_CONF_OFFSET): cv.string,
         vol.Optional(CONF_SEARCH): cv.string,
-        vol.Optional(CONF_TRACK): cv.boolean,
+        vol.Required(CONF_TRACK): cv.boolean,
         vol.Optional(CONF_MAX_RESULTS): cv.positive_int,
     }
 )
@@ -159,15 +159,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass, entry
         )
     )
-
     session = config_entry_oauth2_flow.OAuth2Session(hass, entry, implementation)
-
-    google_entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
-    google_entry_data[LISTENERS] = []
     auth_manager = api.AsyncConfigEntryAuth(session)
+    google_entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
 
     if not await async_do_setup(hass, entry, auth_manager):
         return False
+
+    google_entry_data[LISTENERS] = []
 
     for component in PLATFORMS:
         hass.async_create_task(
@@ -272,6 +271,7 @@ def async_setup_services(
             update_config, hass.config.path(YAML_DEVICES), calendar
         )
 
+    # TODO: Validate service call data, ie the calendar config.
     hass.services.async_register(DOMAIN, SERVICE_FOUND_CALENDARS, _found_calendar)
 
     async def _scan_for_calendars(call: ServiceCall) -> None:
