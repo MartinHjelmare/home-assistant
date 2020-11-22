@@ -1,6 +1,7 @@
 """Test the Google Calendars config flow."""
 from homeassistant import config_entries, setup
 from homeassistant.components.google.const import DOMAIN, OAUTH2_AUTHORIZE, OAUTH2_TOKEN
+from homeassistant.config import async_process_ha_core_config
 from homeassistant.helpers import config_entry_oauth2_flow
 
 from tests.async_mock import patch
@@ -11,12 +12,15 @@ CLIENT_SECRET = "5678"
 
 async def test_full_flow(hass, aiohttp_client, aioclient_mock, current_request):
     """Check full flow."""
+    await async_process_ha_core_config(
+        hass,
+        {"external_url": "https://example.com"},
+    )
     assert await setup.async_setup_component(
         hass,
         "google",
         {
             "google": {"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET},
-            "http": {"base_url": "https://example.com"},
         },
     )
 
@@ -28,7 +32,8 @@ async def test_full_flow(hass, aiohttp_client, aioclient_mock, current_request):
     assert result["url"] == (
         f"{OAUTH2_AUTHORIZE}?response_type=code&client_id={CLIENT_ID}"
         "&redirect_uri=https://example.com/auth/external/callback"
-        f"&state={state}"
+        f"&state={state}&access_type=offline&include_granted_scopes=true"
+        "&prompt=consent&scope=https://www.googleapis.com/auth/calendar"
     )
 
     client = await aiohttp_client(hass.http.app)
