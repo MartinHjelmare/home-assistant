@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .base_class import TradfriBaseEntity
+from .base_class import TradfriBaseEntity, handle_error
 from .const import CONF_GATEWAY_ID, COORDINATOR, COORDINATOR_LIST, DOMAIN, KEY_API
 from .coordinator import TradfriDeviceDataUpdateCoordinator
 
@@ -114,6 +114,7 @@ class TradfriAirPurifierFan(TradfriBaseEntity, FanEntity):
 
         return None
 
+    @handle_error
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode of the fan."""
         if not self._device_control:
@@ -140,6 +141,7 @@ class TradfriAirPurifierFan(TradfriBaseEntity, FanEntity):
         preset_mode = preset_mode or ATTR_AUTO
         await self.async_set_preset_mode(preset_mode)
 
+    @handle_error
     async def async_set_percentage(self, percentage: int) -> None:
         """Set the speed percentage of the fan."""
         if not self._device_control:
@@ -153,6 +155,7 @@ class TradfriAirPurifierFan(TradfriBaseEntity, FanEntity):
             self._device_control.set_fan_speed(_from_fan_percentage(percentage))
         )
 
+    @handle_error
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the fan."""
         if not self._device_control:

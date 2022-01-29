@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine
 from functools import wraps
-from typing import Any, cast
+from typing import Any, Concatenate, ParamSpec, TypeVar, cast
 
 from pytradfri.command import Command
 from pytradfri.device import Device
@@ -17,19 +17,24 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, LOGGER
 from .coordinator import TradfriDeviceDataUpdateCoordinator
 
+_T = TypeVar("_T", bound="CoordinatorEntity")
+_P = ParamSpec("_P")
+
 
 def handle_error(
-    func: Callable[[Command | list[Command]], Any],
-) -> Callable[[Command | list[Command]], Coroutine[Any, Any, None]]:
+    func: Callable[Concatenate[_T, _P], Awaitable[Any]],
+) -> Callable[Concatenate[_T, _P], Coroutine[Any, Any, None]]:
     """Handle tradfri api call error."""
 
     @wraps(func)
-    async def wrapper(command: Command | list[Command]) -> None:
+    async def wrapper(self: _T, *args: _P.args, **kwargs: _P.kwargs) -> None:
         """Decorate api call."""
         try:
-            await func(command)
+            await func(self, *args, **kwargs)
         except RequestError as err:
-            LOGGER.error("Unable to execute command %s: %s", command, err)
+            LOGGER.error("Unable to execute command %s: %s", args, err)
+            self.coordinator.last_update_success = False
+            await self.coordinator.async_request_refresh()
 
     return wrapper
 
@@ -53,7 +58,7 @@ class TradfriBaseEntity(CoordinatorEntity[TradfriDeviceDataUpdateCoordinator]):
         self._device: Device = device_coordinator.data
 
         self._device_id = self._device.id
-        self._api = handle_error(api)
+        self._api = api
 
         info = self._device.device_info
         self._attr_device_info = DeviceInfo(

@@ -11,7 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .base_class import TradfriBaseEntity
+from .base_class import TradfriBaseEntity, handle_error
 from .const import CONF_GATEWAY_ID, COORDINATOR, COORDINATOR_LIST, DOMAIN, KEY_API
 from .coordinator import TradfriDeviceDataUpdateCoordinator
 
@@ -77,24 +77,28 @@ class TradfriCover(TradfriBaseEntity, CoverEntity):
             return None
         return 100 - cast(int, self._device_data.current_cover_position)
 
+    @handle_error
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
         if not self._device_control:
             return
         await self._api(self._device_control.set_state(100 - kwargs[ATTR_POSITION]))
 
+    @handle_error
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
         if not self._device_control:
             return
         await self._api(self._device_control.set_state(0))
 
+    @handle_error
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close cover."""
         if not self._device_control:
             return
         await self._api(self._device_control.set_state(100))
 
+    @handle_error
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Close cover."""
         if not self._device_control:

@@ -21,7 +21,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 import homeassistant.util.color as color_util
 
-from .base_class import TradfriBaseEntity
+from .base_class import TradfriBaseEntity, handle_error
 from .const import CONF_GATEWAY_ID, COORDINATOR, COORDINATOR_LIST, DOMAIN, KEY_API
 from .coordinator import TradfriDeviceDataUpdateCoordinator
 
@@ -136,6 +136,7 @@ class TradfriLight(TradfriBaseEntity, LightEntity):
                 return hue, sat
         return None
 
+    @handle_error
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Instruct the light to turn off."""
         # This allows transitioning to off, but resets the brightness
@@ -154,6 +155,7 @@ class TradfriLight(TradfriBaseEntity, LightEntity):
         else:
             await self._api(self._device_control.set_state(False))
 
+    @handle_error
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Instruct the light to turn on."""
         if not self._device_control:
