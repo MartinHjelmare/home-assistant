@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -104,16 +106,10 @@ async def async_setup_entry(
         COORDINATOR_LIST: [],
     }
 
-    for device in devices:
-        coordinator = TradfriDeviceDataUpdateCoordinator(
-            hass=hass, config_entry=entry, api=api, device=device
-        )
-        await coordinator.async_config_entry_first_refresh()
-
-        entry.async_on_unload(
-            async_dispatcher_connect(hass, SIGNAL_GW, coordinator.set_hub_available)
-        )
-        coordinator_data[COORDINATOR_LIST].append(coordinator)
+    device_coordinators = await asyncio.gather(
+        *[setup_device(hass, entry, api, device) for device in devices]
+    )
+    coordinator_data[COORDINATOR_LIST].extend(device_coordinators)
 
     tradfri_data[COORDINATOR] = coordinator_data
 
@@ -280,3 +276,21 @@ def migrate_config_entry_and_identifiers(
                 (DOMAIN, f"{config_entry.data[CONF_GATEWAY_ID]}-{device_id}")
             },
         )
+
+
+async def setup_device(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    api: Callable[[Command | list[Command]], Coroutine[Any, Any, Any]],
+    device: Device,
+) -> TradfriDeviceDataUpdateCoordinator:
+    """Set up a device."""
+    coordinator = TradfriDeviceDataUpdateCoordinator(
+        hass=hass, config_entry=entry, api=api, device=device
+    )
+    await coordinator.async_config_entry_first_refresh()
+
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, SIGNAL_GW, coordinator.set_hub_available)
+    )
+    return coordinator
