@@ -11,6 +11,7 @@ from pytradfri.device import Device
 from pytradfri.error import RequestError
 from pytradfri.group import Group
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -19,25 +20,25 @@ from .const import SCAN_INTERVAL
 _LOGGER = logging.getLogger(__name__)
 
 
-class TradfriDeviceDataUpdateCoordinator(DataUpdateCoordinator[Device]):
-    """Coordinator to manage data for a specific Tradfri device."""
+class TradfriDataUpdateCoordinator(DataUpdateCoordinator):
+    """Coordinator to manage data for a Tradfri device or group."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         *,
+        config_entry: ConfigEntry,
         api: Callable[[Command | list[Command]], Any],
-        device: Device,
+        device_or_group: Device | Group,
     ) -> None:
-        """Initialize device coordinator."""
+        """Initialize coordinator."""
         self.api = api
-        self.device = device
-        self._exception: Exception | None = None
+        self._config_entry = config_entry
 
         super().__init__(
             hass,
             _LOGGER,
-            name=f"Update coordinator for {device}",
+            name=f"Update coordinator for {device_or_group}",
             update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
 
@@ -47,6 +48,27 @@ class TradfriDeviceDataUpdateCoordinator(DataUpdateCoordinator[Device]):
             if not available:
                 self.last_update_success = False
             await self.async_request_refresh()
+
+
+class TradfriDeviceDataUpdateCoordinator(
+    TradfriDataUpdateCoordinator, DataUpdateCoordinator[Device]
+):
+    """Coordinator to manage data for a specific Tradfri device."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        *,
+        config_entry: ConfigEntry,
+        api: Callable[[Command | list[Command]], Any],
+        device: Device,
+    ) -> None:
+        """Initialize device coordinator."""
+        super().__init__(
+            hass, config_entry=config_entry, api=api, device_or_group=device
+        )
+        self.device = device
+        self._exception: Exception | None = None
 
     @callback
     def _observe_update(self, device: Device) -> None:
@@ -100,34 +122,24 @@ class TradfriDeviceDataUpdateCoordinator(DataUpdateCoordinator[Device]):
         return self.device
 
 
-class TradfriGroupDataUpdateCoordinator(DataUpdateCoordinator[Group]):
+class TradfriGroupDataUpdateCoordinator(
+    TradfriDataUpdateCoordinator, DataUpdateCoordinator[Group]
+):
     """Coordinator to manage data for a specific Tradfri group."""
 
     def __init__(
         self,
         hass: HomeAssistant,
         *,
+        config_entry: ConfigEntry,
         api: Callable[[Command | list[Command]], Any],
         group: Group,
     ) -> None:
         """Initialize group coordinator."""
-        self.api = api
-        self.group = group
-        self._exception: Exception | None = None
-
         super().__init__(
-            hass,
-            _LOGGER,
-            name=f"Update coordinator for {group}",
-            update_interval=timedelta(seconds=SCAN_INTERVAL),
+            hass, config_entry=config_entry, api=api, device_or_group=group
         )
-
-    async def set_hub_available(self, available: bool) -> None:
-        """Set status of hub."""
-        if available != self.last_update_success:
-            if not available:
-                self.last_update_success = False
-            await self.async_request_refresh()
+        self.group = group
 
     async def _async_update_data(self) -> Group:
         """Fetch data from the gateway for a specific group."""
