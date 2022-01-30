@@ -72,21 +72,24 @@ class TradfriDeviceDataUpdateCoordinator(DataUpdateCoordinator[Device]):
 
     async def _async_update_data(self) -> Device:
         """Fetch data from the gateway for a specific device."""
-        try:
-            if self._exception:
-                exc = self._exception
-                self._exception = None  # Clear stored exception
-                raise exc  # pylint: disable-msg=raising-bad-type
-        except RequestError as err:
-            raise UpdateFailed(f"Error communicating with API: {err}.") from err
+        exc: Exception | None = None
+        cmd: Command | None = None
 
-        if not self.data or not self.last_update_success:  # Start subscription
+        if self._exception:
+            exc = self._exception
+            self._exception = None  # Clear stored exception
+
+        elif not self.data or not self.last_update_success:  # Start subscription
+            cmd = self.device.observe(
+                callback=self._observe_update,
+                err_callback=self._exception_callback,
+                duration=0,
+            )
+
+        if exc or cmd:
             try:
-                cmd = self.device.observe(
-                    callback=self._observe_update,
-                    err_callback=self._exception_callback,
-                    duration=0,
-                )
+                if exc:
+                    raise exc  # pylint: disable=raising-bad-type
                 await self.api(cmd)
             except RequestError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}.") from err
