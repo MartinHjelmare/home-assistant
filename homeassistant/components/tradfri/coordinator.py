@@ -8,7 +8,7 @@ from typing import Any
 
 from pytradfri.command import Command
 from pytradfri.device import Device
-from pytradfri.error import RequestError
+from pytradfri.error import ClientError, RequestError
 from pytradfri.group import Group
 
 from homeassistant.config_entries import ConfigEntry
@@ -113,6 +113,12 @@ class TradfriDeviceDataUpdateCoordinator(
                 if exc:
                     raise exc  # pylint: disable=raising-bad-type
                 await self.api(cmd)
+            except ClientError as err:
+                # Reload config entry on client error to handle eg removed device.
+                self.hass.async_create_task(
+                    self.hass.config_entries.async_reload(self._config_entry.entry_id)
+                )
+                raise UpdateFailed(f"Error communicating with API: {err}.") from err
             except RequestError as err:
                 raise UpdateFailed(f"Error communicating with API: {err}.") from err
 
@@ -147,6 +153,12 @@ class TradfriGroupDataUpdateCoordinator(
         cmd = self.group.update()
         try:
             await self.api(cmd)
+        except ClientError as err:
+            # Reload config entry on client error to handle eg removed group.
+            self.hass.async_create_task(
+                self.hass.config_entries.async_reload(self._config_entry.entry_id)
+            )
+            raise UpdateFailed(f"Error communicating with API: {err}.") from err
         except RequestError as exc:
             self.update_interval = timedelta(
                 seconds=5
