@@ -156,7 +156,7 @@ async def async_setup_entry(
 
     for device in devices:
         coordinator = TradfriDeviceDataUpdateCoordinator(
-            hass=hass, api=api, device=device
+            hass=hass, config_entry=entry, api=api, device=device
         )
         await coordinator.async_config_entry_first_refresh()
 
@@ -167,7 +167,7 @@ async def async_setup_entry(
 
     for group in groups:
         group_coordinator = TradfriGroupDataUpdateCoordinator(
-            hass=hass, api=api, group=group
+            hass=hass, config_entry=entry, api=api, group=group
         )
         await group_coordinator.async_config_entry_first_refresh()
         entry.async_on_unload(
