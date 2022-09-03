@@ -83,5 +83,34 @@
       "port_out_of_range": "[%key:component::mysensors::config::error::port_out_of_range%]",
       "unknown": "[%key:common::config_flow::error::unknown%]"
     }
+  },
+  "options": {
+    "step": {
+      "select_upload_delete": {
+        "description": "Do you want to upload or delete firmware from the local store.",
+        "menu_options": {
+          "upload_firmware": "Upload a sketch firmware to the store",
+          "delete_firmware": "Delete a sketch firmware from the store"
+        }
+      },
+      "select_devices": {
+        "description": "Select devices for firmware upload or delete.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "upload_firmware": {
+        "description": "Upload a sketch firmware to the store for the selected devices.",
+        "data": {
+          "sketch_version": "Sketch version",
+          "firmware_file": "Firmware file",
+          "firmware_type": "Firmware type",
+          "firmware_version": "Firmware version"
+        }
+      },
+      "delete_firmware": {
+        "description": "Delete stored firmware files for selected devices."
+      }
+    }
   }
 }

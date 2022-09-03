@@ -17,20 +17,30 @@ from homeassistant.components.mqtt import (
     valid_publish_topic,
     valid_subscribe_topic,
 )
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_DEVICE
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.const import CONF_DEVICE, CONF_DEVICES
 from homeassistant.core import callback
 from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.typing import VolDictType
 
 from .const import (
     CONF_BAUD_RATE,
+    CONF_DEVICE_FIRMWARE,
+    CONF_FIRMWARE_TYPE,
+    CONF_FIRMWARE_VERSION,
+    CONF_FIRWMARE_FILE,
     CONF_GATEWAY_TYPE,
     CONF_GATEWAY_TYPE_MQTT,
     CONF_GATEWAY_TYPE_SERIAL,
     CONF_GATEWAY_TYPE_TCP,
     CONF_PERSISTENCE_FILE,
     CONF_RETAIN,
+    CONF_SKETCH_VERSION,
     CONF_TCP_PORT,
     CONF_TOPIC_IN_PREFIX,
     CONF_TOPIC_OUT_PREFIX,
@@ -38,11 +48,13 @@ from .const import (
     DOMAIN,
     ConfGatewayType,
 )
+from .firmware_store import process_firmware_file
 from .gateway import MQTT_COMPONENT, is_serial_port, is_socket_address, try_connect
 
 DEFAULT_BAUD_RATE = 115200
 DEFAULT_TCP_PORT = 5003
 DEFAULT_VERSION = "1.4"
+FIRMWARE_STORE = f"{DOMAIN}_firmware"
 
 _PORT_SELECTOR = vol.All(
     selector.NumberSelector(
@@ -124,6 +136,14 @@ class MySensorsConfigFlowHandler(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         """Set up config flow."""
         self._gw_type: str | None = None
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> OptionsFlow:
+        """Create the options flow."""
+        return OptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, str] | None = None
@@ -323,3 +343,105 @@ class MySensorsConfigFlowHandler(ConfigFlow, domain=DOMAIN):
             errors["base"] = "cannot_connect"
 
         return errors
+
+
+class OptionsFlowHandler(OptionsFlow):
+    """Represent the options flow for MySensors."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+        self._selected_devices: set[str] = set()
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the options."""
+        return self.async_show_menu(
+            step_id="select_upload_delete",
+            menu_options=["upload_firmware", "delete_firmware"],
+        )
+
+    async def async_step_select_devices(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Select devices for uploading or deleting firmware files in store."""
+        if user_input is not None:
+            self._selected_devices = set(user_input[CONF_DEVICES])
+            return await self.async_step_upload_firmware()
+
+        existing_device_firmware: dict[str, dict[str, str]] = (
+            self.config_entry.options.get(CONF_DEVICE_FIRMWARE, {})
+        )
+        devices = list(existing_device_firmware)
+
+        return self.async_show_form(
+            step_id="select_devices",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_DEVICES,
+                        default=devices,
+                    ): selector.DeviceSelector(
+                        selector.DeviceSelectorConfig(integration=DOMAIN, multiple=True)
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_upload_firmware(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Upload a firmware file for selected devices."""
+        if not self._selected_devices:
+            return await self.async_step_select_devices()
+
+        if user_input is not None:
+            firmware_path = await self.hass.async_add_executor_job(
+                process_firmware_file, self.hass, user_input[CONF_FIRWMARE_FILE]
+            )
+            device_firmware = {
+                device: {
+                    CONF_SKETCH_VERSION: user_input[CONF_SKETCH_VERSION],
+                    CONF_FIRWMARE_FILE: firmware_path,
+                    CONF_FIRMWARE_TYPE: user_input[CONF_FIRMWARE_TYPE],
+                    CONF_FIRMWARE_VERSION: user_input[CONF_FIRMWARE_VERSION],
+                }
+                for device in self._selected_devices
+            }
+            return self.async_create_entry(
+                title="", data={CONF_DEVICE_FIRMWARE: device_firmware}
+            )
+
+        return self.async_show_form(
+            step_id="upload_firmware",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_SKETCH_VERSION): str,
+                    vol.Required(CONF_FIRWMARE_FILE): selector.FileSelector(
+                        selector.FileSelectorConfig(accept=".hex,application/x-binary")
+                    ),
+                    vol.Required(CONF_FIRMWARE_TYPE): int,
+                    vol.Required(CONF_FIRMWARE_VERSION): int,
+                }
+            ),
+        )
+
+    async def async_step_delete_firmware(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Delete firmware files for devices."""
+        if not self._selected_devices:
+            return await self.async_step_select_devices()
+
+        updated_device_firmware: dict[str, dict[str, str]] = {
+            device: data
+            for device, data in self.config_entry.options.get(
+                CONF_DEVICE_FIRMWARE, {}
+            ).items()
+            if device not in self._selected_devices
+        }
+
+        return self.async_create_entry(
+            title="", data={CONF_DEVICE_FIRMWARE: updated_device_firmware}
+        )

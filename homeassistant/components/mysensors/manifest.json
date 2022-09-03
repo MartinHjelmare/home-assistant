@@ -2,6 +2,7 @@
   "domain": "mysensors",
   "name": "MySensors",
   "after_dependencies": ["mqtt"],
+  "dependencies": ["file_upload"],
   "codeowners": ["@MartinHjelmare", "@functionpointer"],
   "config_flow": true,
   "documentation": "https://www.home-assistant.io/integrations/mysensors",

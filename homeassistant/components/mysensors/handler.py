@@ -12,7 +12,13 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.util import decorator
 
-from .const import CHILD_CALLBACK, NODE_CALLBACK, DevId, GatewayId
+from .const import (
+    CHILD_CALLBACK,
+    NODE_CALLBACK,
+    NODE_FIRMWARE_CALLBACK,
+    DevId,
+    GatewayId,
+)
 from .entity import get_mysensors_devices
 from .helpers import (
     discover_mysensors_node,
@@ -74,6 +80,11 @@ def handle_sketch_version(
     hass: HomeAssistant, gateway_id: GatewayId, msg: Message
 ) -> None:
     """Handle an internal sketch version message."""
+    devices = get_mysensors_devices(hass, Platform.UPDATE)
+    # Hardcode value id to 0.
+    dev_id = (gateway_id, msg.node_id, msg.child_id, 0)
+    if dev_id not in devices:
+        discover_mysensors_platform(hass, gateway_id, Platform.UPDATE, [dev_id])
     _handle_node_update(hass, gateway_id, msg)
 
 
@@ -85,6 +96,36 @@ def handle_presentation(
     """Handle an internal presentation message."""
     if msg.child_id == SYSTEM_CHILD_ID:
         discover_mysensors_node(hass, gateway_id, msg.node_id)
+
+
+@HANDLERS.register("stream")
+@callback
+def handle_stream(hass: HomeAssistant, gateway_id: GatewayId, msg: Message) -> None:
+    """Handle a mysensors stream message."""
+    stream_type = msg.gateway.const.Stream(msg.sub_type)
+    if (handler := HANDLERS.get(stream_type.name)) is None:
+        return
+    handler(hass, gateway_id, msg)
+
+
+@HANDLERS.register("ST_FIRMWARE_CONFIG_REQUEST")
+@callback
+def handle_st_firmware_config_request(
+    hass: HomeAssistant, gateway_id: GatewayId, msg: Message
+) -> None:
+    """Handle a mysensors stream firmware config request message."""
+    signal = NODE_FIRMWARE_CALLBACK.format(gateway_id, msg.node_id)
+    async_dispatcher_send(hass, signal, msg)
+
+
+@HANDLERS.register("ST_FIRMWARE_REQUEST")
+@callback
+def handle_st_firmware_request(
+    hass: HomeAssistant, gateway_id: GatewayId, msg: Message
+) -> None:
+    """Handle a mysensors stream firmware request message."""
+    signal = NODE_FIRMWARE_CALLBACK.format(gateway_id, msg.node_id)
+    async_dispatcher_send(hass, signal, msg)
 
 
 @callback

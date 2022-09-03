@@ -12,8 +12,13 @@ ATTR_GATEWAY_ID: Final = "gateway_id"
 ATTR_NODE_ID: Final = "node_id"
 
 CONF_BAUD_RATE: Final = "baud_rate"
+CONF_DEVICE_FIRMWARE = "device_firmware"
+CONF_FIRWMARE_FILE = "firmware_file"
+CONF_FIRMWARE_TYPE = "firmware_type"
+CONF_FIRMWARE_VERSION = "firmware_version"
 CONF_PERSISTENCE_FILE: Final = "persistence_file"
 CONF_RETAIN: Final = "retain"
+CONF_SKETCH_VERSION = "sketch_version"
 CONF_TCP_PORT: Final = "tcp_port"
 CONF_TOPIC_IN_PREFIX: Final = "topic_in_prefix"
 CONF_TOPIC_OUT_PREFIX: Final = "topic_out_prefix"
@@ -32,6 +37,7 @@ PLATFORM: Final = "platform"
 SCHEMA: Final = "schema"
 CHILD_CALLBACK: str = "mysensors_child_callback_{}_{}_{}_{}"
 NODE_CALLBACK: str = "mysensors_node_callback_{}_{}"
+NODE_FIRMWARE_CALLBACK: str = "mysensors_node_firmware_callback_{}_{}"
 MYSENSORS_DISCOVERY: str = "mysensors_discovery_{}_{}"
 MYSENSORS_NODE_DISCOVERY: str = "mysensors_node_discovery"
 TYPE: Final = "type"
@@ -171,4 +177,4 @@ for platform, platform_types in PLATFORM_TYPES.items():
     for s_type_name in platform_types:
         TYPE_TO_PLATFORMS[s_type_name].append(platform)
 
-PLATFORMS = tuple(PLATFORM_TYPES)
+PLATFORMS = (*tuple(PLATFORM_TYPES), Platform.UPDATE)
