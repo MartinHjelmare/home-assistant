@@ -80,6 +80,7 @@ from .const import (
     ENTITY_DESC_KEY_TARGET_TEMPERATURE,
     ENTITY_DESC_KEY_TEMPERATURE,
     ENTITY_DESC_KEY_TOTAL_INCREASING,
+    ENTITY_DESC_KEY_ULTRAVIOLET,
     ENTITY_DESC_KEY_UV_INDEX,
     ENTITY_DESC_KEY_VOLTAGE,
     LOGGER,
@@ -214,7 +215,7 @@ ENTITY_DESCRIPTION_KEY_DEVICE_CLASS_MAP: dict[
         ENTITY_DESC_KEY_SOUND_PRESSURE,
         UnitOfSoundPressure.DECIBEL,
     ): SensorEntityDescription(
-        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        key=ENTITY_DESC_KEY_SOUND_PRESSURE,
         device_class=SensorDeviceClass.SOUND_PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfSoundPressure.DECIBEL,
@@ -223,7 +224,7 @@ ENTITY_DESCRIPTION_KEY_DEVICE_CLASS_MAP: dict[
         ENTITY_DESC_KEY_SOUND_PRESSURE,
         UnitOfSoundPressure.WEIGHTED_DECIBEL_A,
     ): SensorEntityDescription(
-        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        key=ENTITY_DESC_KEY_SOUND_PRESSURE,
         device_class=SensorDeviceClass.SOUND_PRESSURE,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfSoundPressure.WEIGHTED_DECIBEL_A,
@@ -331,6 +332,10 @@ ENTITY_DESCRIPTION_KEY_MAP = {
         key=ENTITY_DESC_KEY_SIGNAL_STRENGTH,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    ENTITY_DESC_KEY_ULTRAVIOLET: SensorEntityDescription(
+        key=ENTITY_DESC_KEY_ULTRAVIOLET,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     ENTITY_DESC_KEY_MEASUREMENT: SensorEntityDescription(
