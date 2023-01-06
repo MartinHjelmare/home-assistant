@@ -41,6 +41,7 @@ from homeassistant.const import (
     UnitOfEnergy,
     UnitOfPower,
     UnitOfPressure,
+    UnitOfSoundPressure,
     UnitOfTemperature,
     UnitOfTime,
 )
@@ -75,6 +76,7 @@ from .const import (
     ENTITY_DESC_KEY_POWER_FACTOR,
     ENTITY_DESC_KEY_PRESSURE,
     ENTITY_DESC_KEY_SIGNAL_STRENGTH,
+    ENTITY_DESC_KEY_SOUND_PRESSURE,
     ENTITY_DESC_KEY_TARGET_TEMPERATURE,
     ENTITY_DESC_KEY_TEMPERATURE,
     ENTITY_DESC_KEY_TOTAL_INCREASING,
@@ -207,6 +209,24 @@ ENTITY_DESCRIPTION_KEY_DEVICE_CLASS_MAP: dict[
         entity_registry_enabled_default=False,
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    ),
+    (
+        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        UnitOfSoundPressure.DECIBEL,
+    ): SensorEntityDescription(
+        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        device_class=SensorDeviceClass.SOUND_PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSoundPressure.DECIBEL,
+    ),
+    (
+        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        UnitOfSoundPressure.WEIGHTED_DECIBEL_A,
+    ): SensorEntityDescription(
+        ENTITY_DESC_KEY_SOUND_PRESSURE,
+        device_class=SensorDeviceClass.SOUND_PRESSURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfSoundPressure.WEIGHTED_DECIBEL_A,
     ),
     (ENTITY_DESC_KEY_TEMPERATURE, UnitOfTemperature.CELSIUS): SensorEntityDescription(
         key=ENTITY_DESC_KEY_TEMPERATURE,
