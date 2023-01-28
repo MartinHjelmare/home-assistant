@@ -108,7 +108,7 @@ class TradfriAirPurifierFan(TradfriBaseEntity, FanEntity):
         if not self._device_data:
             return None
 
-        if self._device_data.fan_speed:
+        if self._device_data.fan_speed is not None:
             return _from_fan_speed(self._device_data.fan_speed)
 
         return None
