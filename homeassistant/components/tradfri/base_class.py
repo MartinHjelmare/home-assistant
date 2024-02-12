@@ -34,7 +34,8 @@ def handle_error(
         except RequestError as err:
             LOGGER.error("Unable to execute command %s: %s", args, err)
             self.coordinator.last_update_success = False
-            await self.coordinator.async_request_refresh()
+            # What should we do with existing observations?
+            self.coordinator.async_update_listeners()
 
     return wrapper
 
