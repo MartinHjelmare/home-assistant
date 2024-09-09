@@ -11,6 +11,7 @@ from typing import Any
 
 import aiohttp
 import tibber
+from tibber.exceptions import WebsocketError
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -295,10 +296,12 @@ async def async_setup_entry(
             entity_creator = TibberRtEntityCreator(
                 async_add_entities, home, entity_registry
             )
+            rt_coordinator = TibberRtDataCoordinator(
+                entity_creator.add_sensors, home, hass
+            )
             await home.rt_subscribe(
-                TibberRtDataCoordinator(
-                    entity_creator.add_sensors, home, hass
-                ).async_set_updated_data
+                callback=rt_coordinator.async_set_updated_data,
+                on_error=rt_coordinator.on_error,
             )
 
         # migrate
@@ -490,12 +493,18 @@ class TibberSensorRT(TibberSensor, CoordinatorEntity["TibberRtDataCoordinator"])
     @property
     def available(self) -> bool:
         """Return True if entity is available."""
-        return self._tibber_home.rt_subscription_running
+        return self._attr_available
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        if not (live_measurement := self.coordinator.get_live_measurement()):
+        if not self._tibber_home.rt_subscription_running or not (
+            live_measurement := self.coordinator.get_live_measurement()
+        ):
+            self._attr_available = False
+            self.async_write_ha_state()
             return
+
+        self._attr_available = True
         state = live_measurement.get(self.entity_description.key)
         if state is None:
             return
@@ -644,6 +653,16 @@ class TibberRtDataCoordinator(DataUpdateCoordinator):  # pylint: disable=hass-en
         """Triggered when data is updated."""
         if live_measurement := self.get_live_measurement():
             self._add_sensor_callback(self, live_measurement)
+
+    def on_error(self, error: Exception) -> None:
+        """Handle error."""
+        if isinstance(error, WebsocketError):
+            _LOGGER.debug("Error from Tibber realtime subscription: %s", error)
+        else:
+            _LOGGER.error(
+                "Error from Tibber realtime subscription: %s", error, exc_info=error
+            )
+        self.async_update_listeners()
 
     def get_live_measurement(self) -> Any:
         """Get live measurement data."""
