@@ -834,7 +834,7 @@ async def test_new_sensor_invalid_scale(
     assert state.state == "9.0"
     assert state.attributes[ATTR_UNIT_OF_MEASUREMENT] == UnitOfTemperature.CELSIUS
 
-    # Update the metadata to an invalid scale (-1) to trigger UnknownValueData
+    # Update the metadata to an invalid scale (255) to trigger UnknownValueData
     # in _get_scale_type on the next value update
     event = Event(
         "metadata updated",
@@ -852,7 +852,7 @@ async def test_new_sensor_invalid_scale(
                     "readable": True,
                     "writeable": False,
                     "label": "Air temperature",
-                    "ccSpecific": {"sensorType": 1, "scale": -1},
+                    "ccSpecific": {"sensorType": 1, "scale": 255},
                     "unit": None,
                 },
                 "propertyName": "Air temperature",
