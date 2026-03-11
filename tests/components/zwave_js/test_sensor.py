@@ -2,6 +2,7 @@
 
 import copy
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
 from zwave_js_server.const.command_class.meter import MeterType
@@ -865,26 +866,32 @@ async def test_new_sensor_invalid_scale(
 
     # Fire a value updated event to trigger on_value_update which calls
     # _get_scale_type - the invalid scale should raise UnknownValueData
-    # which is caught and returns None
-    event = Event(
-        "value updated",
-        {
-            "source": "node",
-            "event": "value updated",
-            "nodeId": multisensor_6.node_id,
-            "args": {
-                "commandClassName": "Multilevel Sensor",
-                "commandClass": 49,
-                "endpoint": 0,
-                "property": "Air temperature",
-                "newValue": 68,
-                "prevValue": 9,
-                "propertyName": "Air temperature",
+    # which is caught and returns None, triggering a reload since
+    # None != original TemperatureScale.CELSIUS
+    with patch.object(
+        hass.config_entries, "async_schedule_reload"
+    ) as mock_schedule_reload:
+        event = Event(
+            "value updated",
+            {
+                "source": "node",
+                "event": "value updated",
+                "nodeId": multisensor_6.node_id,
+                "args": {
+                    "commandClassName": "Multilevel Sensor",
+                    "commandClass": 49,
+                    "endpoint": 0,
+                    "property": "Air temperature",
+                    "newValue": 68,
+                    "prevValue": 9,
+                    "propertyName": "Air temperature",
+                },
             },
-        },
-    )
-    multisensor_6.receive_event(event)
-    await hass.async_block_till_done()
+        )
+        multisensor_6.receive_event(event)
+        await hass.async_block_till_done()
+
+    mock_schedule_reload.assert_called_once_with(integration.entry_id)
 
 
 CONTROLLER_STATISTICS_ENTITY_PREFIX = "sensor.z_stick_gen5_usb_controller_"
